@@ -301,7 +301,7 @@ print(f"\n[3/6] Training GIN model ({EPOCHS} epochs, patience={PATIENCE})...")
 model = GINEncoder(in_dim=atom_feat_dim).to(device)
 optimizer = Adam(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
 scheduler = ReduceLROnPlateau(
-    optimizer, mode="max", factor=0.5, patience=5, verbose=False
+    optimizer, mode="max", factor=0.5, patience=5
 )
 criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
