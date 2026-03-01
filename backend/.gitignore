@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.env/
+.venv/
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+*.egg
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Quantum / ML checkpoints (large binary files)
+checkpoints/*.npy
+construction/checkpoints/*.npy
+
+# Trained model artifacts
+*.pkl
+*.h5
+*.pt
+*.pth
+*.onnx
+
+# Logs & reports
+*.log
+hardware_pipeline_results.json
+construction/hardware_pipeline_results.json
+
+# Data
+*.csv
+*.csv.gz
+*.parquet
+
+# Temporary files
+*.tmp
+*.bak
+~$*

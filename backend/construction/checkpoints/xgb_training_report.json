@@ -1,0 +1,62 @@
+{
+  "test_roc_auc": 0.7423,
+  "best_cv_roc_auc": 0.8088,
+  "best_params": {
+    "n_estimators": 600,
+    "max_depth": 7,
+    "learning_rate": 0.03066858475573406,
+    "subsample": 0.5313502393759336,
+    "colsample_bytree": 0.6311194467686728,
+    "min_child_weight": 11,
+    "gamma": 0.6909328342019739,
+    "reg_alpha": 0.0020534454692441623,
+    "reg_lambda": 0.0066004157759451025,
+    "scale_pos_weight": 28.40370024126665,
+    "eval_metric": "logloss",
+    "use_label_encoder": false,
+    "random_state": 42,
+    "n_jobs": -1,
+    "tree_method": "hist"
+  },
+  "features_total": 4278,
+  "features_after_filter": 3946,
+  "train_samples": 5812,
+  "test_samples": 1453,
+  "scale_pos_weight_base": 22.511326860841425,
+  "toxic_train": 247,
+  "safe_train": 5565,
+  "classification_report": {
+    "0": {
+      "precision": 0.9719691660826909,
+      "recall": 0.9971243709561467,
+      "f1-score": 0.9843860894251242,
+      "support": 1391.0
+    },
+    "1": {
+      "precision": 0.8461538461538461,
+      "recall": 0.3548387096774194,
+      "f1-score": 0.5,
+      "support": 62.0
+    },
+    "accuracy": 0.9697178251892636,
+    "macro avg": {
+      "precision": 0.9090615061182685,
+      "recall": 0.675981540316783,
+      "f1-score": 0.7421930447125621,
+      "support": 1453.0
+    },
+    "weighted avg": {
+      "precision": 0.9666005839522104,
+      "recall": 0.9697178251892636,
+      "f1-score": 0.9637171716382297,
+      "support": 1453.0
+    }
+  },
+  "fingerprint_types": [
+    "Morgan_r2_1024",
+    "Morgan_r3_1024",
+    "MACCS_167",
+    "RDKit_2048",
+    "PhysChem_15"
+  ]
+}
