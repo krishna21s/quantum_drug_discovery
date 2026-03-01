@@ -1,0 +1,37 @@
+# Quantum Drug Discovery Platform V2 — Dependencies
+# ==================================================
+
+# Quantum
+qiskit>=1.0
+qiskit-aer>=0.13
+
+# Chemistry
+rdkit>=2023.9.1
+
+# Classical ML
+xgboost>=2.0
+scikit-learn>=1.3
+optuna>=3.4
+
+# GNN / Deep Learning (required for Phase 2+)
+torch>=2.1
+torch_geometric>=2.4
+
+# Data & Compute
+numpy>=1.24
+pandas>=2.0
+scipy>=1.11
+
+# Web App
+streamlit>=1.30
+matplotlib>=3.8
+
+# Serialization & Caching
+redis>=5.0           # Optional: for distributed embedding cache
+
+# Testing
+pytest>=7.4
+pytest-cov>=4.1
+
+# Monitoring (optional, for Phase 6+)
+# prometheus-client>=0.19
