@@ -35,13 +35,25 @@ RANDOM_STATE = 42
 # CLASSICAL MODEL
 # ================================================================
 PHYSCHEM_DESCS = [
-    "MolWt", "MolLogP", "TPSA", "NumRotatableBonds",
-    "NumHAcceptors", "NumHDonors", "NumAromaticRings",
-    "RingCount", "FractionCSP3", "HeavyAtomCount",
-    "NumAliphaticRings", "NumSaturatedRings",
-    "BalabanJ", "BertzCT", "Chi0",
+    "MolWt",
+    "MolLogP",
+    "TPSA",
+    "NumRotatableBonds",
+    "NumHAcceptors",
+    "NumHDonors",
+    "NumAromaticRings",
+    "RingCount",
+    "FractionCSP3",
+    "HeavyAtomCount",
+    "NumAliphaticRings",
+    "NumSaturatedRings",
+    "BalabanJ",
+    "BertzCT",
+    "Chi0",
 ]
-MULTI_FP_DIM = 4278  # Morgan r2(1024) + r3(1024) + MACCS(167) + RDKit(2048) + PhysChem(15)
+MULTI_FP_DIM = (
+    4278  # Morgan r2(1024) + r3(1024) + MACCS(167) + RDKit(2048) + PhysChem(15)
+)
 
 # XGBoost training
 OPTUNA_TRIALS = 60
@@ -65,8 +77,8 @@ ALERT_THRESHOLD = 0.60
 # ================================================================
 # FEATURE FLAGS
 # ================================================================
-ENABLE_GNN = False          # Set True when GNN model is trained
-ENABLE_SHOT_MODE = True     # Allow shot-based final evaluation
+ENABLE_GNN = True  # GNN model trained and checkpoint available
+ENABLE_SHOT_MODE = True  # Allow shot-based final evaluation
 ENABLE_HARDWARE_CHECK = False  # Real hardware integration
 
 # ================================================================
@@ -94,9 +106,9 @@ CHECKPOINT_EVERY_N_ROWS = 10
 # REFERENCE MOLECULES (for validation & regression tests)
 # ================================================================
 REFERENCE_MOLECULES = {
-    "Aspirin (Safe)":       ("CC(=O)OC1=CC=CC=C1C(=O)O", 0),
+    "Aspirin (Safe)": ("CC(=O)OC1=CC=CC=C1C(=O)O", 0),
     "Phenanthrene (Toxic)": ("C1=CC=C2C(=C1)C=CC3=CC=CC=C32", 1),
-    "Ibuprofen (Safe)":     ("CC(C)Cc1ccc(cc1)C(C)C(=O)O", 0),
-    "Bisphenol A (Toxic)":  ("CC(c1ccc(O)cc1)(c1ccc(O)cc1)C", 1),
-    "Paracetamol (Safe)":   ("CC(=O)Nc1ccc(O)cc1", 0),
+    "Ibuprofen (Safe)": ("CC(C)Cc1ccc(cc1)C(C)C(=O)O", 0),
+    "Bisphenol A (Toxic)": ("CC(c1ccc(O)cc1)(c1ccc(O)cc1)C", 1),
+    "Paracetamol (Safe)": ("CC(=O)Nc1ccc(O)cc1", 0),
 }
