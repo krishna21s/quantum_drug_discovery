@@ -1,0 +1,34 @@
+QSVR V3 Training Report
+Target: EGFR Lung Cancer (20-qubit Quantum SVR)
+────────────────────────────────────────
+Train molecules: 597
+Test molecules:  123
+Qubits:          20
+Nystrom landmarks: 100
+────────────────────────────────────────
+Test R²:         -45.6237
+Pearson r:       -0.1648
+RMSE:            8.6192
+────────────────────────────────────────
+Selected features: [
+  "WHIM_1",
+  "WHIM_2",
+  "WHIM_3",
+  "WHIM_4",
+  "WHIM_6",
+  "WHIM_8",
+  "WHIM_9",
+  "WHIM_10",
+  "WHIM_11",
+  "WHIM_20",
+  "WHIM_21",
+  "WHIM_22",
+  "WHIM_31",
+  "WHIM_32",
+  "WHIM_33",
+  "WHIM_75",
+  "WHIM_76",
+  "WHIM_77",
+  "WHIM_85",
+  "WHIM_101"
+]

@@ -1,0 +1,76 @@
+# construction_v3 — Walkthrough & Proof of Work
+
+## What Was Built
+
+A complete **Target Binding Affinity Regression** module targeting EGFR (Lung Cancer) using a Hybrid Quantum-Classical ensemble. All 10 Python files pass AST syntax checks.
+
+## Directory Structure
+
+```
+backend/construction_v3/
+├── config.py                        # EGFR target, pIC50 scale, 20-qubit params
+├── requirements.txt                 # All dependencies incl. mordred for 3D-MoRSE
+├── app_v3.py                        # Streamlit dual-mode UI (35 KB)
+├── services/
+│   ├── feature_service_3d.py        # ETKDG v3 + MMFF94 + WHIM + Pearson filter
+│   ├── classical_router.py          # XGBRegressor pIC50 inference
+│   ├── nystrom_engine.py            # Nystrom kernel (SVR-adapted)
+│   └── quantum_kernel_service.py   # 20-qubit QSVR two-mode engine
+├── quantum/
+│   ├── backends.py                  # Statevector + Shot fidelity backends
+│   └── circuits.py                  # HEA 20-qubit fidelity circuit
+├── training/
+│   ├── train_xgb_regressor.py      # Auto-downloads ChEMBL + XGBoost + Optuna
+│   └── train_qsvr.py               # 20-qubit Nystrom-QSVR training pipeline
+└── checkpoints/                     # Auto-created on first import
+```
+
+## Key Design Decisions
+
+| Component | V2 (Classification) | V3 (Regression) |
+|-----------|---------------------|-----------------|
+| Target | Tox21 NR-AR | EGFR (ChEMBL203) |
+| Features | 2D Morgan + MACCS | 3D WHIM + AUTOCORR3D (20 orthogonal) |
+| Feature Generation | RDKit 2D | ETKDG v3 + MMFF94 + Pearson filter |
+| Core Model | SVC (classify) | SVR (continuous pIC50) |
+| Output | P(toxic) ∈ [0,1] | pIC50 ∈ [4, 11] |
+| Metric | Accuracy / AUC | Pearson R² / RMSE |
+
+## Syntax Verification Results
+
+All 10 files passed Python AST parse validation:
+- [config.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/config.py) ✅
+- [services/feature_service_3d.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/services/feature_service_3d.py) ✅
+- [services/classical_router.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v2/services/classical_router.py) ✅
+- [services/nystrom_engine.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v2/services/nystrom_engine.py) ✅
+- [services/quantum_kernel_service.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/services/quantum_kernel_service.py) ✅
+- [quantum/backends.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v2/quantum/backends.py) ✅
+- [quantum/circuits.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v2/quantum/circuits.py) ✅
+- [training/train_xgb_regressor.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/training/train_xgb_regressor.py) ✅
+- [training/train_qsvr.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/training/train_qsvr.py) ✅
+- [app_v3.py](file:///c:/Data/01_Projects/Work/quantum_drug_discovery/backend/construction_v3/app_v3.py) ✅
+
+## How to Use
+
+```bash
+# Step 1: Install dependencies (in existing venv)
+pip install -r construction_v3/requirements.txt
+
+# Step 2: Train XGBRegressor (~5-10 min, downloads ChEMBL data automatically)
+cd backend/construction_v3
+python training/train_xgb_regressor.py
+
+# Step 3: Train QSVR (~30-180 min, checkpointed for resumability)
+python training/train_qsvr.py
+
+# Step 4: Launch App
+streamlit run app_v3.py
+```
+
+## Success Metrics
+
+| Metric | Target | Description |
+|--------|--------|-------------|
+| Pearson R² | > 0.65 | Correlation with lab data |
+| RMSE | < 1.0 | Error within one log unit of pIC50 |
+| Latency | ≤ 3s | Statevector fast-path SLA |
