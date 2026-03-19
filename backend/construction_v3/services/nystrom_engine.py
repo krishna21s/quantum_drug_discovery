@@ -161,47 +161,88 @@ class NystromEngine:
         return K
 
     # ------------------------------------------------------------------
-    # ROBUST KERNEL RECONSTRUCTION (unchanged from V2)
+    # ROBUST KERNEL RECONSTRUCTION (Phase A: RBF-Q transform)
     # ------------------------------------------------------------------
 
-    def reconstruct_kernel(self, K_mm=None, K_nm=None, svd_threshold=0.10):
+    @staticmethod
+    def apply_rbf_transform(K, gamma):
         """
-        Full Nystrom kernel reconstruction with robust fixes.
+        Transform raw fidelity kernel → RBF-Quantum kernel.
+
+        K_new(i,j) = exp(-gamma * (1 - K(i,j)))
+
+        With gamma=50: fidelity=1.0→1.0, 0.98→0.37, 0.95→0.08
+        This dramatically increases effective rank of near-constant
+        fidelity matrices (the core fix for kernel collapse).
+        """
+        K_rbf = np.exp(-gamma * (1.0 - np.clip(K, 0, 1)))
+        np.fill_diagonal(K_rbf, 1.0)
+        return K_rbf
+
+    def reconstruct_kernel(self, K_mm=None, K_nm=None,
+                           svd_threshold=None, kernel_gamma=None,
+                           regularization=None):
+        """
+        Full Nystrom kernel reconstruction with RBF-Q fix.
 
         Pipeline:
-          1. SVD-truncated pseudoinverse of K_mm
-          2. Nystrom: K_train ≈ K_nm · K_mm_inv · K_nm^T
-          3. PSD projection (clip negative eigenvalues to 0)
-          4. Cosine normalization
-          5. Clip to [0, 1]
+          0. (NEW) RBF-Q transform: K_new = exp(-gamma*(1-K))
+          1. Tikhonov regularization: K_mm + lambda*I
+          2. SVD-truncated pseudoinverse of K_mm
+          3. Nystrom: K_train ~ K_nm . K_mm_inv . K_nm^T
+          4. PSD projection (clip negative eigenvalues to 0)
+          5. Cosine normalization
+          6. Clip to [0, 1]
 
         Returns:
             K_train: (N, N) reconstructed training kernel
             K_mm_inv: pseudoinverse of K_mm
             diag_train: diagonal normalization factors
         """
+        from config import KERNEL_GAMMA, SVD_THRESHOLD, K_MM_REGULARIZATION
+
         K_mm = K_mm if K_mm is not None else self.K_mm
         K_nm = K_nm if K_nm is not None else self.K_nm
+        gamma = kernel_gamma if kernel_gamma is not None else KERNEL_GAMMA
+        svd_thresh = svd_threshold if svd_threshold is not None else SVD_THRESHOLD
+        reg_lambda = regularization if regularization is not None else K_MM_REGULARIZATION
 
         if K_mm is None or K_nm is None:
             raise ValueError("K_mm and K_nm must be computed or provided.")
 
         m = len(K_mm)
 
-        # Step 1: SVD-truncated pseudoinverse
-        U, s, Vt = np.linalg.svd(K_mm, full_matrices=False)
-        threshold = svd_threshold * s[0]
+        # Step 0: RBF-Q transform (Phase A core fix)
+        if gamma > 0:
+            print(f"  RBF-Q transform: gamma={gamma}")
+            K_mm_t = self.apply_rbf_transform(K_mm, gamma)
+            K_nm_t = self.apply_rbf_transform(K_nm, gamma)
+            rank_before = int(np.sum(np.linalg.svd(K_mm, compute_uv=False) > 0.1 * np.linalg.svd(K_mm, compute_uv=False)[0]))
+            rank_after  = int(np.sum(np.linalg.svd(K_mm_t, compute_uv=False) > 0.1 * np.linalg.svd(K_mm_t, compute_uv=False)[0]))
+            print(f"  Effective rank: {rank_before} -> {rank_after} (10% threshold)")
+        else:
+            K_mm_t = K_mm.copy()
+            K_nm_t = K_nm.copy()
+
+        # Step 1: Tikhonov regularization
+        if reg_lambda > 0:
+            K_mm_t = K_mm_t + reg_lambda * np.eye(m)
+            print(f"  Tikhonov regularization: lambda={reg_lambda}")
+
+        # Step 2: SVD-truncated pseudoinverse
+        U, s, Vt = np.linalg.svd(K_mm_t, full_matrices=False)
+        threshold = svd_thresh * s[0]
         s_inv     = np.where(s > threshold, 1.0 / s, 0.0)
         K_mm_inv  = Vt.T @ np.diag(s_inv) @ U.T
         kept      = int(np.sum(s > threshold))
         print(f"  SVD: Kept {kept}/{m} singular values (threshold={threshold:.4f})")
 
-        # Step 2: Nystrom reconstruction
-        K_train = K_nm @ K_mm_inv @ K_nm.T
+        # Step 3: Nystrom reconstruction
+        K_train = K_nm_t @ K_mm_inv @ K_nm_t.T
         np.fill_diagonal(K_train, 1.0)
         K_train = (K_train + K_train.T) / 2.0
 
-        # Step 3: PSD projection
+        # Step 4: PSD projection
         eigvals, eigvecs = np.linalg.eigh(K_train)
         neg_count = int(np.sum(eigvals < 0))
         eigvals   = np.maximum(eigvals, 0)
@@ -240,23 +281,29 @@ class NystromEngine:
         """
         Reconstruct full kernel prediction and return continuous pIC50.
 
-        Key difference from V2:
-            V2: svc_model.predict_proba(K_row) → toxicity probability
-            V3: svr_model.predict(K_row)        → continuous pIC50 value
+        Key changes from V2:
+            1. V3: svr_model.predict(K_row) → continuous pIC50 value
+            2. Phase A: applies RBF-Q transform to new kernel row
 
         Args:
-            K_new_m:   (1, m) kernel row against landmarks
-            K_mm_inv:  Pseudoinverse of K_mm
-            K_nm:      (N, m) training-to-landmark matrix
+            K_new_m:   (1, m) kernel row against landmarks (raw fidelity)
+            K_mm_inv:  Pseudoinverse of TRANSFORMED K_mm
+            K_nm:      (N, m) TRANSFORMED training-to-landmark matrix
             diag_train: Diagonal normalization factors
             svr_model:  Fitted SVR(kernel='precomputed')
 
         Returns:
             float: Predicted pIC50 value
         """
+        from config import KERNEL_GAMMA
+
         K_mm_inv   = K_mm_inv   if K_mm_inv   is not None else self.K_mm_inv
         K_nm       = K_nm       if K_nm       is not None else self.K_nm
         diag_train = diag_train if diag_train is not None else self.diag_train
+
+        # Apply RBF-Q transform to the new row (must match training transform)
+        if KERNEL_GAMMA > 0:
+            K_new_m = self.apply_rbf_transform(K_new_m, KERNEL_GAMMA)
 
         # Nystrom reconstruction for the new point
         K_new_train = K_new_m @ K_mm_inv @ K_nm.T

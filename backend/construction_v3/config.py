@@ -46,10 +46,18 @@ PIC50_MED_THRESHOLD  = 5.0   # pIC50 ≥ 5 → moderate binder
 # ================================================================
 N_QUBITS          = 20
 N_SHOTS           = 1024
-NYSTROM_LANDMARKS = 100
+NYSTROM_LANDMARKS = 50   # Phase B: reduced from 100 → 2x K_nm speedup
 MAX_TRAIN         = 600
 MAX_TEST          = 120
 RANDOM_STATE      = 42
+
+# ── Kernel Transformation (Phase A fix for kernel collapse) ──
+KERNEL_GAMMA         = 3.0    # RBF-Q: exp(-gamma * (1 - fidelity))
+SVD_THRESHOLD        = 0.01   # Keep more singular values (was 0.10)
+K_MM_REGULARIZATION  = 0.005  # Tikhonov regularization on K_mm
+
+# ── Checkpoint directories ──
+CHECKPOINTS_FINAL_DIR = BASE_DIR / "checkpoints_v3_final"  # Kaggle-trained
 
 # ================================================================
 # 3D FEATURE ENGINEERING

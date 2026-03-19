@@ -1,0 +1,18 @@
+QSVR V3 Phase A Retrain Report
+Target: EGFR Lung Cancer (20-qubit Quantum SVR)
+----------------------------------------
+Method: RBF-Q kernel transform (no retraining of quantum circuits)
+KERNEL_GAMMA: 3.0
+SVD_THRESHOLD: 0.01
+K_MM_REGULARIZATION: 0.005
+----------------------------------------
+Raw K_mm effective rank: 9/100
+Transformed K_mm rank:   21/100
+SVR C=0.1, epsilon=0.1
+----------------------------------------
+Cross-Val R2:       0.0408
+Cross-Val Pearson:  0.2467
+Cross-Val RMSE:     1.3051
+Train R2:           0.1439
+----------------------------------------
+Elapsed: 27.1s
