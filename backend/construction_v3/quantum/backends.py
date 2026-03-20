@@ -25,15 +25,16 @@ class StatevectorBackend:
         pairs, submits all 50 circuits in one sim.run([c1..c50]) call.
     """
 
-    def __init__(self, n_qubits=N_QUBITS, n_shots=N_SHOTS):
+    def __init__(self, n_qubits=N_QUBITS, n_shots=N_SHOTS, params=None):
         self.n_qubits = n_qubits
         self.n_shots  = n_shots
+        self.params   = params
         self.zeros    = "0" * n_qubits
         self.sim      = AerSimulator(method="statevector")
 
     def fidelity(self, x1, x2) -> float:
         """Compute fidelity between two feature vectors (single pair)."""
-        qc     = build_hea_circuit(x1, x2, n_qubits=self.n_qubits, measure=True)
+        qc     = build_hea_circuit(x1, x2, n_qubits=self.n_qubits, measure=True, params=self.params)
         counts = self.sim.run(qc, shots=self.n_shots).result().get_counts()
         return counts.get(self.zeros, 0) / self.n_shots
 
@@ -52,7 +53,7 @@ class StatevectorBackend:
             np.ndarray of shape (m,) with fidelity values
         """
         circuits = [
-            build_hea_circuit(x_query, lm, n_qubits=self.n_qubits, measure=True)
+            build_hea_circuit(x_query, lm, n_qubits=self.n_qubits, measure=True, params=self.params)
             for lm in landmark_list
         ]
         results = self.sim.run(circuits, shots=self.n_shots).result()
@@ -70,10 +71,11 @@ class ShotBackend:
     Also supports batch mode.
     """
 
-    def __init__(self, n_qubits=N_QUBITS, n_shots=N_SHOTS, noise_model=None):
+    def __init__(self, n_qubits=N_QUBITS, n_shots=N_SHOTS, noise_model=None, params=None):
         self.n_qubits    = n_qubits
         self.n_shots     = n_shots
         self.noise_model = noise_model
+        self.params      = params
         self.zeros       = "0" * n_qubits
 
         if noise_model is not None:
@@ -87,7 +89,7 @@ class ShotBackend:
     def fidelity_batch(self, x_query, landmark_list) -> np.ndarray:
         """Batch fidelity for shot backend."""
         circuits = [
-            build_hea_circuit(x_query, lm, n_qubits=self.n_qubits, measure=True)
+            build_hea_circuit(x_query, lm, n_qubits=self.n_qubits, measure=True, params=self.params)
             for lm in landmark_list
         ]
         results = self.sim.run(circuits, shots=self.n_shots).result()
@@ -98,7 +100,7 @@ class ShotBackend:
         return fidelities
 
     def fidelity_with_counts(self, x1, x2) -> dict:
-        qc          = build_hea_circuit(x1, x2, n_qubits=self.n_qubits, measure=True)
+        qc          = build_hea_circuit(x1, x2, n_qubits=self.n_qubits, measure=True, params=self.params)
         result      = self.sim.run(qc, shots=self.n_shots).result()
         counts      = result.get_counts()
         zero_counts = counts.get(self.zeros, 0)

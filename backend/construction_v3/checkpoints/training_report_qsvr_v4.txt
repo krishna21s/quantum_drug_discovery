@@ -1,0 +1,52 @@
+QSVR V4 Training Report
+==================================================
+Fixes applied:
+  FIX 1: ArctanScaler → [-π/2, π/2]
+  FIX 2: KTA circuit param optimisation
+  FIX 3: Hybrid quantum+RBF kernel  alpha=0.0
+  FIX 4: Gamma sweep → gamma=1.0
+  FIX 5: Stale checkpoint detection
+  FIX 6: 100 landmarks (was 50)
+==================================================
+KTA params: B:\drug_discovery_vk\quantum_drug_discovery\backend\construction_v3\checkpoints\kta_params_final.npy
+Landmarks:  100
+Gamma:      1.0
+Alpha:      0.0
+rbf_gamma:  0.01
+SVR C:      1.0   eps: 0.05
+==================================================
+Test R2:        0.4146
+Test Pearson:   0.6514
+Test RMSE:      0.9658
+==================================================
+CV R2:          0.2662
+CV Pearson:     0.5199
+CV RMSE:        1.1415
+==================================================
+Train R2:       0.2866
+Train RMSE:     1.1255
+==================================================
+Selected features:
+[
+  "MACCS_98",
+  "MFP3_343",
+  "MFP2_428",
+  "MFP2_491",
+  "MFP3_489",
+  "MFP2_202",
+  "MFP2_73",
+  "MFP2_128",
+  "MFP2_378",
+  "MFP3_105",
+  "MACCS_77",
+  "MACCS_38",
+  "MFP3_45",
+  "MACCS_120",
+  "MACCS_65",
+  "MFP3_196",
+  "MACCS_133",
+  "MFP3_484",
+  "MFP2_329",
+  "MACCS_80"
+]
+Elapsed: 18.2 min
