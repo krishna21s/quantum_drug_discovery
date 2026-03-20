@@ -1,0 +1,34 @@
+# ============================================================
+# V4 De Novo Drug Generation — Dependencies
+# ============================================================
+# Split into Phase 1 (Kaggle) and Phase 2 (local) sections.
+# Kaggle already has torch + rdkit pre-installed.
+#
+# Phase 1 (Pre-training — Kaggle):
+#   pip install datasets
+#
+# Phase 2 (RL + API — local):
+#   pip install -r requirements_v4.txt
+# ============================================================
+
+# --- Core (Both phases) ---
+torch>=2.0.0
+rdkit-pypi>=2023.3.1
+pandas>=2.0.0
+numpy>=1.24.0
+
+# --- Phase 1: Pre-training (Kaggle) ---
+datasets>=2.14.0
+
+# --- Phase 2: RL + Oracles + API (Local) ---
+fastapi>=0.100.0
+uvicorn[standard]>=0.22.0
+biopython>=1.81
+scipy>=1.10.0
+scikit-learn>=1.3.0
+xgboost>=1.7.0
+requests>=2.28.0
+websockets>=11.0
+
+# --- Optional ---
+# MDAnalysis>=2.6.0          # for SASA; pure RDKit fallback available
