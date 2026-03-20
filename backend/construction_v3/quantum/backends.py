@@ -12,7 +12,7 @@ from qiskit_aer import AerSimulator
 import sys, os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import N_QUBITS, N_SHOTS
-from quantum.circuits import build_hea_circuit
+from quantum.circuits import build_reuploading_circuit as build_hea_circuit
 
 
 class StatevectorBackend:

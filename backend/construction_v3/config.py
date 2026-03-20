@@ -44,17 +44,18 @@ PIC50_MED_THRESHOLD  = 5.0   # pIC50 ≥ 5 → moderate binder
 # ================================================================
 # QUANTUM PARAMETERS
 # ================================================================
-N_QUBITS          = 20
+N_QUBITS          = 8     # Reduced from 20 → 8 to avoid exponential concentration
+N_REUPLOADING_LAYERS = 3  # 3 layers × 8 qubits = 24 slots → encodes 20 features
 N_SHOTS           = 1024
-NYSTROM_LANDMARKS = 50   # Phase B: reduced from 100 → 2x K_nm speedup
+NYSTROM_LANDMARKS = 100  # 100 landmarks for 597 training samples (~17%)
 MAX_TRAIN         = 600
 MAX_TEST          = 120
 RANDOM_STATE      = 42
 
-# ── Kernel Transformation (Phase A fix for kernel collapse) ──
-KERNEL_GAMMA         = 3.0    # RBF-Q: exp(-gamma * (1 - fidelity))
-SVD_THRESHOLD        = 0.01   # Keep more singular values (was 0.10)
-K_MM_REGULARIZATION  = 0.005  # Tikhonov regularization on K_mm
+# ── Kernel Transformation ──
+KERNEL_GAMMA         = 0.0    # Disabled: 8-qubit fidelities are in useful range
+SVD_THRESHOLD        = 0.005  # Keep more singular values for richer kernel
+K_MM_REGULARIZATION  = 0.001  # Tikhonov regularization on K_mm (lighter)
 
 # ── Checkpoint directories ──
 CHECKPOINTS_FINAL_DIR = BASE_DIR / "checkpoints_v3_final"  # Kaggle-trained
@@ -64,7 +65,7 @@ CHECKPOINTS_FINAL_DIR = BASE_DIR / "checkpoints_v3_final"  # Kaggle-trained
 # ================================================================
 N_3D_FEATURES     = 20   # Must match N_QUBITS
 CONFORMER_ATTEMPTS = 3   # Number of ETKDG conformer generation attempts
-PEARSON_THRESHOLD  = 0.85  # |ρ| < 0.85 for orthogonality filter
+PEARSON_THRESHOLD  = 0.75  # |ρ| < 0.75 for stronger orthogonality (more diverse features)
 
 # 3D Descriptor groups selected from
 # WHIM (geometry / symmetry) and 3D-MoRSE (scattering)

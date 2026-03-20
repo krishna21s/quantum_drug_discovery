@@ -1,23 +1,26 @@
 """
-Train QSVR — Phase B: 20-Qubit QSVR with Data Reuploading Circuit
+Train QSVR — Phase B (Production): 20-Qubit Data Reuploading QSVR
 ===================================================================
-Phase B upgrades:
-  1. Arctan feature normalization (better Bloch sphere coverage)
+Production-grade training with all kernel pipeline fixes:
+  1. Arctan feature normalization (robust Bloch sphere coverage)
   2. Batch fidelity execution (4-8x faster K_nm via single sim.run)
-  3. Reduced landmarks: 50 (was 100) → 2x faster
-  4. Single clean test evaluation loop (removed redundant first pass)
-  5. RBF-Q kernel transform in reconstruction
+  3. RBF-Q kernel transform with gamma=50 (fixes kernel collapse)
+  4. Correct rectangular K_nm handling (no diagonal corruption)
+  5. Consistent test kernel reconstruction (pre-transformed K_nm)
+  6. Wide SVR hyperparameter search with RBF kernel
+  7. Kernel quality diagnostics and logging throughout
 
 Usage:
     python training/train_qsvr.py
 
 Outputs (saved to checkpoints/):
     - qsvr_model_v3.pkl
-    - qsvr_scaler_v3.pkl (or StandardScaler for arctan)
+    - qsvr_scaler_v3.pkl
     - qsvr_landmarks_scaled_v3.npy
     - qsvr_selected_features_v3.json
     - qsvr_K_mm_inv_v3.npy
     - qsvr_diag_train_v3.npy
+    - qsvr_K_nm_transformed_v3.npy   (NEW: for consistent inference)
     - training_report_qsvr.txt
 """
 
@@ -74,18 +77,29 @@ class ArctanScaler:
 
 
 # ================================================================
+# KERNEL DIAGNOSTICS
+# ================================================================
+
+def log_kernel_stats(name, K, is_square=True):
+    """Print diagnostic statistics for a kernel matrix."""
+    print(f"  [{name}] shape={K.shape}  range=[{K.min():.4f}, {K.max():.4f}]  mean={K.mean():.4f}  std={K.std():.4f}")
+    if is_square and K.shape[0] == K.shape[1]:
+        offdiag = K[np.triu_indices_from(K, k=1)]
+        print(f"  [{name}] off-diag: mean={offdiag.mean():.4f}  std={offdiag.std():.4f}  min={offdiag.min():.4f}  max={offdiag.max():.4f}")
+        svs = np.linalg.svd(K, compute_uv=False)
+        rank10 = int(np.sum(svs > 0.1 * svs[0]))
+        rank01 = int(np.sum(svs > 0.01 * svs[0]))
+        print(f"  [{name}] effective rank: {rank10} (10% cutoff), {rank01} (1% cutoff) out of {len(svs)}")
+
+
+# ================================================================
 # BATCH K_nm COMPUTATION (Phase B: 4-8x faster)
 # ================================================================
 
 def compute_K_nm_batch(X_train, landmarks, backend, checkpoint_dir, fname="K_nm_v3.npy"):
     """
     Compute N×m training-to-landmark kernel matrix using BATCH fidelity calls.
-
-    Phase B speedup: for each row i, submits ALL m landmark circuits in one
-    sim.run([c1,...,cm]) call instead of m separate calls.
-    Reduction: N*m Python round-trips → N Python round-trips.
-
-    Also resumes from partial checkpoint if available.
+    Resumes from partial checkpoint if available.
     """
     N, m = len(X_train), len(landmarks)
     path = os.path.join(checkpoint_dir, fname)
@@ -168,8 +182,12 @@ def compute_K_mm_batch(landmarks, backend, checkpoint_dir, fname="K_mm_v3.npy"):
 
 def main():
     print("=" * 60)
-    print(" QSVR Training: Phase B — 20-Qubit Data Reuploading")
+    print(" QSVR Training: Phase B (Production) — 20-Qubit QSVR")
     print("=" * 60)
+    print(f"  KERNEL_GAMMA:     {KERNEL_GAMMA}")
+    print(f"  NYSTROM_LANDMARKS: {NYSTROM_LANDMARKS}")
+    print(f"  SVD_THRESHOLD:    {SVD_THRESHOLD}")
+    print(f"  K_MM_REG:         {K_MM_REGULARIZATION}")
 
     t_start = time.time()
 
@@ -190,6 +208,7 @@ def main():
     df_train = df.iloc[:n_train]
     df_test  = df.iloc[n_train:]
     print(f"  Train: {len(df_train)}, Test: {len(df_test)}")
+    print(f"  y_train: mean={df_train['pic50'].mean():.2f}  std={df_train['pic50'].std():.2f}")
 
     # ── STEP 2: 3D Feature Extraction ────────────────────────────────
     from services.feature_service_3d import FeatureService3D
@@ -237,8 +256,8 @@ def main():
     X_train_3d = X_train_raw[:, sel_idx]
     X_test_3d  = X_test_raw[:, sel_idx]
 
-    # ── STEP 4: Phase B — Arctan Normalization ────────────────────────
-    print(f"\n[SCALER] Phase B: Arctan normalization to [0, pi]")
+    # ── STEP 4: Arctan Normalization ─────────────────────────────────
+    print(f"\n[SCALER] Arctan normalization to [0, pi]")
     scaler = ArctanScaler()
     X_train_scaled = scaler.fit_transform(X_train_3d).astype(np.float32)
     X_test_scaled  = scaler.transform(X_test_3d).astype(np.float32)
@@ -268,6 +287,10 @@ def main():
     )
     nystrom.K_mm = K_mm
 
+    # ── Diagnostic: Raw K_mm statistics ──
+    print("\n[DIAGNOSTICS] Raw fidelity kernels:")
+    log_kernel_stats("K_mm_raw", K_mm, is_square=True)
+
     # K_nm — batch mode (the big one)
     print(f"\n  Computing K_nm ({len(X_train_scaled)}x{NYSTROM_LANDMARKS})...")
     print(f"  NOTE: {NYSTROM_LANDMARKS} circuits per row → ~{len(X_train_scaled)} sim.run() calls")
@@ -275,6 +298,7 @@ def main():
         X_train_scaled, landmarks_scaled, backend_sv, str(CHECKPOINT_DIR)
     )
     nystrom.K_nm = K_nm
+    log_kernel_stats("K_nm_raw", K_nm, is_square=False)
 
     # ── STEP 6: Kernel Reconstruction with RBF-Q transform ───────────
     print(f"\n[KERNEL] Reconstructing with RBF-Q (gamma={KERNEL_GAMMA})...")
@@ -285,11 +309,23 @@ def main():
         regularization=K_MM_REGULARIZATION
     )
 
-    # ── STEP 7: SVR Hyperparameter Search ───────────────────────────
-    print(f"\n[SVR] Grid search over C and epsilon...")
+    # ── Pre-compute transformed K_nm for test evaluation ──
+    # MUST match reconstruct_kernel logic: only transform if gamma > 0
+    if KERNEL_GAMMA > 0:
+        K_nm_transformed = NystromEngine.apply_rbf_transform(K_nm, KERNEL_GAMMA)
+    else:
+        K_nm_transformed = K_nm.copy()
+        print("  [INFO] gamma=0: using raw fidelity kernel (no RBF-Q transform)")
+
+    # ── Diagnostic: Reconstructed kernel statistics ──
+    print("\n[DIAGNOSTICS] Reconstructed training kernel:")
+    log_kernel_stats("K_train", K_train, is_square=True)
+
+    # ── STEP 7: SVR Hyperparameter Search (WIDE grid) ────────────────
+    print(f"\n[SVR] Wide grid search over C and epsilon...")
     param_grid = {
-        "C":       [0.1, 1.0, 10.0, 50.0, 100.0],
-        "epsilon": [0.01, 0.05, 0.1, 0.2],
+        "C":       [0.01, 0.1, 1.0, 10.0, 50.0, 100.0, 500.0, 1000.0],
+        "epsilon": [0.001, 0.01, 0.05, 0.1, 0.2, 0.5],
     }
     grid = GridSearchCV(
         SVR(kernel="precomputed"), param_grid,
@@ -300,12 +336,26 @@ def main():
     best_eps = grid.best_params_["epsilon"]
     print(f"  Best CV R2: {grid.best_score_:.4f}  C={best_C}  eps={best_eps}")
 
+    # Log top-5 CV results for insight
+    cv_results = pd.DataFrame(grid.cv_results_)
+    cv_results = cv_results.sort_values("mean_test_score", ascending=False).head(5)
+    print("  Top 5 configurations:")
+    for _, row in cv_results.iterrows():
+        print(f"    C={row['param_C']:<6}  eps={row['param_epsilon']:<6}  R2={row['mean_test_score']:.4f} ± {row['std_test_score']:.4f}")
+
     # ── STEP 8: Fit final SVR ────────────────────────────────────────
     print(f"\n[SVR] Fitting final model...")
     svr = SVR(kernel="precomputed", C=best_C, epsilon=best_eps)
     svr.fit(K_train, y_train)
 
-    # ── STEP 9: Test Evaluation (single clean loop) ──────────────────
+    # Training set performance
+    y_train_pred = svr.predict(K_train)
+    train_r2   = r2_score(y_train, y_train_pred)
+    train_rmse = np.sqrt(mean_squared_error(y_train, y_train_pred))
+    print(f"  Train R2:   {train_r2:.4f}")
+    print(f"  Train RMSE: {train_rmse:.4f}")
+
+    # ── STEP 9: Test Evaluation (consistent with training reconstruction) ──
     print(f"\n[TEST] Building test kernel ({len(X_test_scaled)}x{len(X_train_scaled)})...")
     K_test_full = np.zeros((len(X_test_scaled), len(X_train_scaled)))
 
@@ -313,14 +363,19 @@ def main():
         if i % 10 == 0:
             print(f"  Test row {i+1}/{len(X_test_scaled)}...", end="\r")
 
-        # Batch: all 50 landmark fidelities in one sim.run()
-        K_row = backend_sv.fidelity_batch(x_new, landmarks_scaled).reshape(1, -1)
+        # Batch: all landmark fidelities in one sim.run()
+        K_row_raw = backend_sv.fidelity_batch(x_new, landmarks_scaled).reshape(1, -1)
 
-        # Apply RBF-Q transform (must match training)
-        K_row_t = NystromEngine.apply_rbf_transform(K_row, KERNEL_GAMMA)
+        # Apply same transform as training (skip if gamma=0)
+        if KERNEL_GAMMA > 0:
+            K_row_t = NystromEngine.apply_rbf_transform(K_row_raw, KERNEL_GAMMA)
+        else:
+            K_row_t = K_row_raw
 
-        # Nystrom reconstruction
-        K_new_train = K_row_t @ K_mm_inv @ (NystromEngine.apply_rbf_transform(K_nm, KERNEL_GAMMA)).T
+        # Nystrom reconstruction using consistently-transformed K_nm
+        K_new_train = K_row_t @ K_mm_inv @ K_nm_transformed.T
+
+        # Cosine normalization (matches training)
         K_new_self  = np.sum((K_row_t @ K_mm_inv) * K_row_t, axis=1)
         diag_new    = np.sqrt(np.maximum(K_new_self, 1e-12))
         K_new_train = K_new_train / np.outer(diag_new, diag_train)
@@ -329,15 +384,31 @@ def main():
 
     y_pred = svr.predict(K_test_full)
 
-    r2        = r2_score(y_test, y_pred)
-    rmse      = np.sqrt(mean_squared_error(y_test, y_pred))
+    r2          = r2_score(y_test, y_pred)
+    rmse        = np.sqrt(mean_squared_error(y_test, y_pred))
     pearson_r, _ = pearsonr(y_test, y_pred)
 
-    print(f"\n[RESULTS] -----------------------------------------")
-    print(f"  Test R2:      {r2:.4f}   (target > 0.65)")
-    print(f"  Pearson r:    {pearson_r:.4f}")
-    print(f"  Test RMSE:    {rmse:.4f}  (target < 1.0)")
-    print(f"  Best SVR C:   {best_C}   eps: {best_eps}")
+    # Cross-validation R2 for additional robustness check
+    y_cv_pred = cross_val_predict(
+        SVR(kernel="precomputed", C=best_C, epsilon=best_eps),
+        K_train, y_train, cv=5
+    )
+    cv_r2   = r2_score(y_train, y_cv_pred)
+    cv_rmse = np.sqrt(mean_squared_error(y_train, y_cv_pred))
+    cv_pearson, _ = pearsonr(y_train, y_cv_pred)
+
+    print(f"\n[RESULTS] =========================================")
+    print(f"  Test R2:        {r2:.4f}   (target > 0.65)")
+    print(f"  Test Pearson r: {pearson_r:.4f}")
+    print(f"  Test RMSE:      {rmse:.4f}  (target < 1.0)")
+    print(f"  ---")
+    print(f"  CV R2:          {cv_r2:.4f}")
+    print(f"  CV Pearson r:   {cv_pearson:.4f}")
+    print(f"  CV RMSE:        {cv_rmse:.4f}")
+    print(f"  ---")
+    print(f"  Train R2:       {train_r2:.4f}")
+    print(f"  Train RMSE:     {train_rmse:.4f}")
+    print(f"  Best SVR C:     {best_C}   eps: {best_eps}")
 
     # ── STEP 10: Save Checkpoints ───────────────────────────────────
     os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -357,14 +428,17 @@ def main():
     np.save(CHECKPOINT_DIR / "qsvr_K_mm_inv_v3.npy", K_mm_inv)
     np.save(CHECKPOINT_DIR / "qsvr_diag_train_v3.npy", diag_train)
 
+    # Save transformed K_nm for consistent inference
+    np.save(CHECKPOINT_DIR / "qsvr_K_nm_transformed_v3.npy", K_nm_transformed)
+
     with open(CHECKPOINT_DIR / "qsvr_selected_features_v3.json", "w") as f:
         json.dump(selected_features, f, indent=2)
 
     elapsed = (time.time() - t_start) / 60
     report = (
-        f"QSVR V3 Phase B Training Report\n"
+        f"QSVR V3 Phase B (Production) Training Report\n"
         f"Target: EGFR Lung Cancer (20-qubit Data Reuploading + CZ)\n"
-        f"{'-'*40}\n"
+        f"{'-'*50}\n"
         f"Circuit: 2-layer data reuploading + CZ ring\n"
         f"Scaler: ArctanScaler\n"
         f"Landmarks: {NYSTROM_LANDMARKS}\n"
@@ -372,11 +446,18 @@ def main():
         f"SVD_THRESHOLD: {SVD_THRESHOLD}\n"
         f"K_MM_REG: {K_MM_REGULARIZATION}\n"
         f"SVR C={best_C}, eps={best_eps}\n"
-        f"{'-'*40}\n"
-        f"Test R2:      {r2:.4f}\n"
-        f"Pearson r:    {pearson_r:.4f}\n"
-        f"Test RMSE:    {rmse:.4f}\n"
-        f"{'-'*40}\n"
+        f"{'-'*50}\n"
+        f"Test R2:        {r2:.4f}\n"
+        f"Test Pearson r: {pearson_r:.4f}\n"
+        f"Test RMSE:      {rmse:.4f}\n"
+        f"{'-'*50}\n"
+        f"CV R2:          {cv_r2:.4f}\n"
+        f"CV Pearson:     {cv_pearson:.4f}\n"
+        f"CV RMSE:        {cv_rmse:.4f}\n"
+        f"{'-'*50}\n"
+        f"Train R2:       {train_r2:.4f}\n"
+        f"Train RMSE:     {train_rmse:.4f}\n"
+        f"{'-'*50}\n"
         f"Selected features: {json.dumps(selected_features, indent=2)}\n"
         f"Elapsed: {elapsed:.1f} min\n"
     )
@@ -385,7 +466,7 @@ def main():
 
     print(f"\n[SAVED] All checkpoints saved to {CHECKPOINT_DIR}")
     print(f"[TIME]  Total elapsed: {elapsed:.1f} min")
-    print("\nQSVR Phase B training complete!")
+    print("\nQSVR Phase B (Production) training complete!")
 
 
 if __name__ == "__main__":

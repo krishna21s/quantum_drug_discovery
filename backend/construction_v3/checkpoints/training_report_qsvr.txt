@@ -1,18 +1,45 @@
-QSVR V3 Phase A Retrain Report
-Target: EGFR Lung Cancer (20-qubit Quantum SVR)
-----------------------------------------
-Method: RBF-Q kernel transform (no retraining of quantum circuits)
-KERNEL_GAMMA: 3.0
-SVD_THRESHOLD: 0.01
-K_MM_REGULARIZATION: 0.005
-----------------------------------------
-Raw K_mm effective rank: 9/100
-Transformed K_mm rank:   21/100
-SVR C=0.1, epsilon=0.1
-----------------------------------------
-Cross-Val R2:       0.0408
-Cross-Val Pearson:  0.2467
-Cross-Val RMSE:     1.3051
-Train R2:           0.1439
-----------------------------------------
-Elapsed: 27.1s
+QSVR V3 Phase B (Production) Training Report
+Target: EGFR Lung Cancer (20-qubit Data Reuploading + CZ)
+--------------------------------------------------
+Circuit: 2-layer data reuploading + CZ ring
+Scaler: ArctanScaler
+Landmarks: 100
+KERNEL_GAMMA: 0.0
+SVD_THRESHOLD: 0.005
+K_MM_REG: 0.001
+SVR C=0.1, eps=0.001
+--------------------------------------------------
+Test R2:        -0.0270
+Test Pearson r: nan
+Test RMSE:      1.2792
+--------------------------------------------------
+CV R2:          0.0701
+CV Pearson:     0.2647
+CV RMSE:        1.2850
+--------------------------------------------------
+Train R2:       0.1241
+Train RMSE:     1.2471
+--------------------------------------------------
+Selected features: [
+  "WHIM_113",
+  "2D_TPSA",
+  "WHIM_67",
+  "2D_NumRotatableBonds",
+  "WHIM_57",
+  "2D_MolLogP",
+  "2D_RingCount",
+  "2D_NumHDonors",
+  "WHIM_58",
+  "AUTOCORR3D_70",
+  "AUTOCORR3D_66",
+  "AUTOCORR3D_68",
+  "WHIM_20",
+  "AUTOCORR3D_60",
+  "AUTOCORR3D_57",
+  "WHIM_95",
+  "WHIM_75",
+  "WHIM_21",
+  "2D_FractionCSP3",
+  "AUTOCORR3D_59"
+]
+Elapsed: 7.2 min

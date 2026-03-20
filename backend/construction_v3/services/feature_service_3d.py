@@ -240,12 +240,19 @@ class FeatureService3D:
         if X_valid.shape[1] == 0:
             raise ValueError("No valid features after variance filtering.")
 
-        # Normalize
-        X_norm = (X_valid - X_valid.mean(axis=0)) / (X_valid.std(axis=0) + 1e-8)
+        # Step 1b: Sort candidates by variance (descending) so the most
+        # informative features are considered first in greedy selection
+        variances = np.var(X_valid, axis=0)
+        variance_order = np.argsort(-variances)  # highest variance first
+        X_sorted = X_valid[:, variance_order]
+        names_sorted = [names_valid[i] for i in variance_order]
 
-        # Step 2: Greedy Pearson filter
-        selected_idx = [0]  # Always start with first feature
-        for i in range(1, len(names_valid)):
+        # Normalize for correlation computation
+        X_norm = (X_sorted - X_sorted.mean(axis=0)) / (X_sorted.std(axis=0) + 1e-8)
+
+        # Step 2: Greedy Pearson filter (variance-prioritized)
+        selected_idx = [0]  # Start with highest-variance feature
+        for i in range(1, len(names_sorted)):
             col = X_norm[:, i]
             too_correlated = False
             for sel_i in selected_idx:
@@ -260,14 +267,15 @@ class FeatureService3D:
 
         # If we have fewer than N_3D_FEATURES, pad with remaining features
         if len(selected_idx) < N_3D_FEATURES:
-            remaining = [i for i in range(len(names_valid)) if i not in set(selected_idx)]
+            remaining = [i for i in range(len(names_sorted)) if i not in set(selected_idx)]
             need = N_3D_FEATURES - len(selected_idx)
             selected_idx.extend(remaining[:need])
 
         selected_idx = selected_idx[:N_3D_FEATURES]
-        self._selected_features = [names_valid[i] for i in selected_idx]
+        self._selected_features = [names_sorted[i] for i in selected_idx]
         print(f"  Pearson filter selected {len(self._selected_features)} features: "
               f"{self._selected_features[:5]}...")
+        print(f"  Feature types: {len(set(n.split('_')[0] for n in self._selected_features))} distinct groups")
 
         return self._selected_features
 

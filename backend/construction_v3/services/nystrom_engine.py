@@ -174,9 +174,14 @@ class NystromEngine:
         With gamma=50: fidelity=1.0→1.0, 0.98→0.37, 0.95→0.08
         This dramatically increases effective rank of near-constant
         fidelity matrices (the core fix for kernel collapse).
+
+        NOTE: Only fills diagonal with 1.0 for square matrices.
+        Rectangular matrices (e.g. K_nm) must NOT have their
+        diagonal overwritten — those are valid fidelity values.
         """
         K_rbf = np.exp(-gamma * (1.0 - np.clip(K, 0, 1)))
-        np.fill_diagonal(K_rbf, 1.0)
+        if K_rbf.ndim == 2 and K_rbf.shape[0] == K_rbf.shape[1]:
+            np.fill_diagonal(K_rbf, 1.0)
         return K_rbf
 
     def reconstruct_kernel(self, K_mm=None, K_nm=None,
@@ -305,8 +310,14 @@ class NystromEngine:
         if KERNEL_GAMMA > 0:
             K_new_m = self.apply_rbf_transform(K_new_m, KERNEL_GAMMA)
 
+        # K_nm should ALREADY be RBF-Q transformed (saved as such after training).
+        # If not, transform it now for backward compatibility.
+        K_nm_t = K_nm
+        if hasattr(self, '_K_nm_is_raw') and self._K_nm_is_raw:
+            K_nm_t = self.apply_rbf_transform(K_nm, KERNEL_GAMMA)
+
         # Nystrom reconstruction for the new point
-        K_new_train = K_new_m @ K_mm_inv @ K_nm.T
+        K_new_train = K_new_m @ K_mm_inv @ K_nm_t.T
 
         # Cosine normalization
         K_new_self  = np.sum((K_new_m @ K_mm_inv) * K_new_m, axis=1)
