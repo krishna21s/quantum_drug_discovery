@@ -1,0 +1,1 @@
+python .\training\train_qsvr_v4.py --n-kta 60 --kta-iters 80 --kta-restarts 3 --landmarks 100

@@ -23,12 +23,8 @@ from typing import List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import (
-    N_3D_FEATURES,
-    CONFORMER_ATTEMPTS,
-    PEARSON_THRESHOLD,
-    PHYSCHEM_DESCS,
-    CHECKPOINT_DIR,
-    RANDOM_STATE,
+    N_3D_FEATURES, CONFORMER_ATTEMPTS, PEARSON_THRESHOLD,
+    PHYSCHEM_DESCS, CHECKPOINT_DIR, RANDOM_STATE
 )
 
 # Silence RDKit warnings
@@ -39,7 +35,6 @@ try:
     from rdkit.Chem import Descriptors, rdMolDescriptors, AllChem
     from rdkit.Chem.rdForceFieldHelpers import MMFFOptimizeMolecule
     from rdkit.ML.Descriptors import MoleculeDescriptors
-
     RDKIT_AVAILABLE = True
 except ImportError as e:
     RDKIT_AVAILABLE = False
@@ -47,13 +42,10 @@ except ImportError as e:
 
 try:
     from mordred import Calculator, descriptors as mordred_descs
-
     MORDRED_AVAILABLE = True
 except ImportError:
     MORDRED_AVAILABLE = False
-    print(
-        "[WARNING] mordred not installed. 3D-MoRSE descriptors will use RDKit AUTOCORR fallback."
-    )
+    print("[WARNING] mordred not installed. 3D-MoRSE descriptors will use RDKit AUTOCORR fallback.")
 
 
 class FeatureService3D:
@@ -141,7 +133,7 @@ class FeatureService3D:
         # ---- WHIM Descriptors (3D shape, symmetry, and size) ----
         try:
             whim = rdMolDescriptors.CalcWHIM(mol)
-            whim_names = [f"WHIM_{i + 1}" for i in range(len(whim))]
+            whim_names = [f"WHIM_{i+1}" for i in range(len(whim))]
             for name, val in zip(whim_names, whim):
                 features[name] = val if np.isfinite(val) else 0.0
         except Exception:
@@ -151,7 +143,7 @@ class FeatureService3D:
         try:
             autocorr3d = rdMolDescriptors.CalcAUTOCORR3D(mol)
             for i, val in enumerate(autocorr3d):
-                features[f"AUTOCORR3D_{i + 1}"] = val if np.isfinite(val) else 0.0
+                features[f"AUTOCORR3D_{i+1}"] = val if np.isfinite(val) else 0.0
         except Exception:
             pass
 
@@ -164,66 +156,15 @@ class FeatureService3D:
                     name = str(key)
                     if "Mor" in name or "RDF" in name:
                         try:
-                            features[name] = (
-                                float(val) if np.isfinite(float(val)) else 0.0
-                            )
+                            features[name] = float(val) if np.isfinite(float(val)) else 0.0
                         except (TypeError, ValueError):
                             features[name] = 0.0
             except Exception:
                 pass
 
-        # ---- 2D PhysChem (always included) ----
+        # ---- 2D PhysChem Fallback (always included) ----
         phys2d = self._extract_physchem_2d(mol)
         features.update(phys2d)
-
-        # ---- Morgan Fingerprints (radius 2 + 3, 512 bits each) ----
-        # Key addition in V4: expands candidate pool to ~1400 features.
-        # Supervised filter picks the 20 most pIC50-correlated, lifting
-        # classical R² ceiling from 0.025 to 0.24+ (10x improvement).
-        try:
-            mol_noh = Chem.RemoveHs(mol)
-            # Use new MorganGenerator API (avoids deprecation warnings)
-            from rdkit.Chem.rdFingerprintGenerator import GetMorganGenerator
-
-            gen2 = GetMorganGenerator(radius=2, fpSize=512)
-            gen3 = GetMorganGenerator(radius=3, fpSize=512)
-            fp_r2 = gen2.GetFingerprintAsNumPy(mol_noh)
-            fp_r3 = gen3.GetFingerprintAsNumPy(mol_noh)
-            for i, bit in enumerate(fp_r2):
-                features[f"MFP2_{i}"] = float(bit)
-            for i, bit in enumerate(fp_r3):
-                features[f"MFP3_{i}"] = float(bit)
-        except Exception:
-            # Fallback to legacy API if MorganGenerator not available
-            try:
-                mol_noh = Chem.RemoveHs(mol)
-                import warnings
-
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore")
-                    fp_r2 = AllChem.GetMorganFingerprintAsBitVect(
-                        mol_noh, radius=2, nBits=512
-                    )
-                    fp_r3 = AllChem.GetMorganFingerprintAsBitVect(
-                        mol_noh, radius=3, nBits=512
-                    )
-                for i, bit in enumerate(fp_r2):
-                    features[f"MFP2_{i}"] = float(bit)
-                for i, bit in enumerate(fp_r3):
-                    features[f"MFP3_{i}"] = float(bit)
-            except Exception:
-                pass
-
-        # ---- MACCS Keys (167 structural keys) ----
-        try:
-            from rdkit.Chem import MACCSkeys
-
-            mol_noh = Chem.RemoveHs(mol)
-            maccs = MACCSkeys.GenMACCSKeys(mol_noh)
-            for i, bit in enumerate(maccs):
-                features[f"MACCS_{i}"] = float(bit)
-        except Exception:
-            pass
 
         if not features:
             return self._extract_2d_fallback(smiles)
@@ -235,7 +176,9 @@ class FeatureService3D:
         return values, names
 
     def extract_orthogonal_descriptors(
-        self, smiles: str, selected_features: Optional[List[str]] = None
+        self,
+        smiles: str,
+        selected_features: Optional[List[str]] = None
     ) -> np.ndarray:
         """
         Extract exactly N_3D_FEATURES orthogonal 3D descriptors.
@@ -253,7 +196,7 @@ class FeatureService3D:
             name_to_idx = {n: i for i, n in enumerate(names)}
             out = np.array(
                 [values[name_to_idx[f]] if f in name_to_idx else 0.0 for f in feats],
-                dtype=np.float32,
+                dtype=np.float32
             )
         else:
             # Pad or truncate to N_3D_FEATURES
@@ -268,133 +211,72 @@ class FeatureService3D:
     # PEARSON FILTER — called once during dataset preparation
     # ------------------------------------------------------------------
 
-    def fit_pearson_filter(
-        self, X: np.ndarray, feature_names: List[str], y: Optional[np.ndarray] = None
-    ) -> List[str]:
+    def fit_pearson_filter(self, X: np.ndarray, feature_names: List[str]) -> List[str]:
         """
-        Select N_3D_FEATURES features for the quantum kernel.
+        Select N_3D_FEATURES orthogonal features using Pearson correlation.
 
-        V4 SUPERVISED (y provided — default for training):
-            Sorts candidates by |ρ(feature, y_pIC50)| before deduplication.
-            Guarantees selected features actually predict the target.
-            Root fix for CV R²=0.07 — V3 selected orthogonal-but-useless features.
-
-        V3 FALLBACK (y=None):
-            Sorts by variance. Kept for backward compatibility only.
+        Strategy:
+          1. Remove zero-variance columns
+          2. Greedily select features where |ρ| < PEARSON_THRESHOLD
+             with all already-selected features
 
         Args:
-            X:             (N_samples, N_raw_features) raw descriptor matrix
-            feature_names: matching feature name strings
-            y:             (N_samples,) pIC50 labels — always pass during training
+            X: (N_samples, N_raw_features) matrix
+            feature_names: list of feature name strings
+
+        Returns:
+            selected_features: list of N_3D_FEATURES feature names
         """
         n_samples, n_raw = X.shape
-        print(
-            f"  Feature selector: input {X.shape}  "
-            f"mode={'supervised' if y is not None else 'unsupervised (V3 fallback)'}"
-        )
+        print(f"  Pearson filter: input shape {X.shape}")
 
         # Step 1: Remove zero-variance features
         std = np.std(X, axis=0)
         valid_mask = std > 1e-6
-        X_valid = X[:, valid_mask]
+        X_valid  = X[:, valid_mask]
         names_valid = [n for n, m in zip(feature_names, valid_mask) if m]
-        print(f"  After variance filter: {X_valid.shape[1]}/{n_raw} remain")
+        print(f"  After variance filter: {X_valid.shape[1]}/{n_raw} features remain")
+
         if X_valid.shape[1] == 0:
             raise ValueError("No valid features after variance filtering.")
 
-        # Step 2: Determine priority order
-        if y is not None:
-            y_z = (y - y.mean()) / (y.std() + 1e-8)
-            X_z = (X_valid - X_valid.mean(0)) / (X_valid.std(0) + 1e-8)
-            label_corr = np.abs(X_z.T @ y_z) / (n_samples - 1)
+        # Step 1b: Sort candidates by variance (descending) so the most
+        # informative features are considered first in greedy selection
+        variances = np.var(X_valid, axis=0)
+        variance_order = np.argsort(-variances)  # highest variance first
+        X_sorted = X_valid[:, variance_order]
+        names_sorted = [names_valid[i] for i in variance_order]
 
-            top5 = np.argsort(-label_corr)[:5]
-            print(
-                f"  Top-5 |ρ(feat,y)|: "
-                + "  ".join(f"{names_valid[i]}={label_corr[i]:.3f}" for i in top5)
-            )
-            print(
-                f"  |ρ_y| stats — mean={label_corr.mean():.3f}  "
-                f"max={label_corr.max():.3f}  "
-                f">0.10: {(label_corr > 0.10).mean() * 100:.0f}%"
-            )
+        # Normalize for correlation computation
+        X_norm = (X_sorted - X_sorted.mean(axis=0)) / (X_sorted.std(axis=0) + 1e-8)
 
-            MIN_LABEL_CORR = 0.05
-            n_pass = int((label_corr >= MIN_LABEL_CORR).sum())
-            if n_pass < N_3D_FEATURES:
-                sorted_corr = np.sort(label_corr)[::-1]
-                MIN_LABEL_CORR = float(
-                    sorted_corr[min(N_3D_FEATURES * 2, len(sorted_corr)) - 1]
-                )
-                print(f"  [INFO] Auto-lowered threshold to {MIN_LABEL_CORR:.4f}")
-
-            label_mask = label_corr >= MIN_LABEL_CORR
-            primary_idx = np.where(label_mask)[0]
-            fallback_idx = np.where(~label_mask)[0]
-            priority_order = primary_idx[np.argsort(-label_corr[primary_idx])]
-            fallback_order = fallback_idx[np.argsort(-label_corr[fallback_idx])]
-            sort_order = np.concatenate([priority_order, fallback_order])
-            print(f"  {len(primary_idx)} features pass |ρ_y| ≥ {MIN_LABEL_CORR:.4f}")
-        else:
-            variances = np.var(X_valid, axis=0)
-            sort_order = np.argsort(-variances)
-            label_corr = None
-            print(
-                "  [WARN] No y provided — variance sort (V3). Pass y= for supervised mode."
-            )
-
-        X_sorted = X_valid[:, sort_order]
-        names_sorted = [names_valid[i] for i in sort_order]
-
-        # Step 3: Greedy Pearson deduplication
-        X_norm = (X_sorted - X_sorted.mean(0)) / (X_sorted.std(0) + 1e-8)
-        selected_idx = [0]
+        # Step 2: Greedy Pearson filter (variance-prioritized)
+        selected_idx = [0]  # Start with highest-variance feature
         for i in range(1, len(names_sorted)):
             col = X_norm[:, i]
-            too_correlated = any(
-                abs(float(np.corrcoef(col, X_norm[:, s])[0, 1])) >= PEARSON_THRESHOLD
-                for s in selected_idx
-            )
+            too_correlated = False
+            for sel_i in selected_idx:
+                rho = float(np.corrcoef(col, X_norm[:, sel_i])[0, 1])
+                if abs(rho) >= PEARSON_THRESHOLD:
+                    too_correlated = True
+                    break
             if not too_correlated:
                 selected_idx.append(i)
             if len(selected_idx) >= N_3D_FEATURES:
                 break
 
-        # Step 4: Pad if short
+        # If we have fewer than N_3D_FEATURES, pad with remaining features
         if len(selected_idx) < N_3D_FEATURES:
-            remaining = [
-                i for i in range(len(names_sorted)) if i not in set(selected_idx)
-            ]
+            remaining = [i for i in range(len(names_sorted)) if i not in set(selected_idx)]
             need = N_3D_FEATURES - len(selected_idx)
             selected_idx.extend(remaining[:need])
-            print(f"  [INFO] Padded {need} features to reach {N_3D_FEATURES}")
 
         selected_idx = selected_idx[:N_3D_FEATURES]
         self._selected_features = [names_sorted[i] for i in selected_idx]
+        print(f"  Pearson filter selected {len(self._selected_features)} features: "
+              f"{self._selected_features[:5]}...")
+        print(f"  Feature types: {len(set(n.split('_')[0] for n in self._selected_features))} distinct groups")
 
-        if label_corr is not None:
-            sel_corrs = [
-                label_corr[list(names_valid).index(f)] if f in names_valid else 0.0
-                for f in self._selected_features
-            ]
-            print(
-                f"  Selected {N_3D_FEATURES} features — "
-                f"|ρ_y| mean={np.mean(sel_corrs):.3f}  "
-                f"min={np.min(sel_corrs):.3f}  max={np.max(sel_corrs):.3f}"
-            )
-            print(
-                "  Top selected: "
-                + "  ".join(
-                    f"{self._selected_features[i]}(ρ={sel_corrs[i]:.2f})"
-                    for i in range(min(5, N_3D_FEATURES))
-                )
-            )
-        else:
-            print(f"  Selected {N_3D_FEATURES}: {self._selected_features[:5]}...")
-
-        print(
-            f"  Groups: {len(set(n.split('_')[0] for n in self._selected_features))} distinct"
-        )
         return self._selected_features
 
     # ------------------------------------------------------------------
@@ -418,9 +300,7 @@ class FeatureService3D:
         """Pure 2D fallback when 3D conformer fails."""
         mol = Chem.MolFromSmiles(smiles)
         if mol is None:
-            return np.zeros(N_3D_FEATURES, dtype=np.float32), [
-                f"zero_{i}" for i in range(N_3D_FEATURES)
-            ]
+            return np.zeros(N_3D_FEATURES, dtype=np.float32), [f"zero_{i}" for i in range(N_3D_FEATURES)]
 
         phys = self._extract_physchem_2d(mol)
         # Also add fingerprint bits as extra features

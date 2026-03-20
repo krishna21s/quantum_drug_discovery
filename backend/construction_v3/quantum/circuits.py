@@ -1,87 +1,113 @@
 """
-Quantum Circuits — 8-Qubit Multi-Layer Data Reuploading (Production)
-=====================================================================
-Compact 8-qubit architecture that encodes 20 features via 3 reuploading
-layers. This avoids the 20-qubit exponential concentration problem where
-fidelities collapse to ~0 in a 2²⁰-dimensional Hilbert space.
+Quantum Circuits — 8-Qubit Multi-Layer Data Reuploading (V4)
+============================================================
+V4 adds TRAINABLE parameters to every RY gate for Quantum Kernel
+Alignment (QKA). Each qubit in each layer gets:
+    - theta_i  : learnable scale   (init=1.0)
+    - phi_i    : learnable bias    (init=0.0)
 
-Architecture:
-  Layer 1: RY(x[0..7])           + CZ ring   (features 0-7)
-  Layer 2: RY(x[8..15] + π/4)   + CZ ring   (features 8-15)
-  Layer 3: RY(x[16..19] + π/2)  + CZ ring   (features 16-19, q4-q7 get π/2)
+So the rotation becomes: RY(theta_i * x[feat] + phi_i + layer_offset)
 
-Fidelity circuit: U†(x1) · U(x2), measured as P(|00000000⟩)
+This allows gradient-free optimisation (L-BFGS-B on KTA) to find
+the parameter set that makes the quantum kernel best correlated
+with pIC50 labels — the root fix for CV R²=0.07.
 
-Key advantages:
-  - 2⁸ = 256 dim Hilbert space → fidelities in useful 0.1-0.9 range
-  - All 20 features encoded (no information loss)
-  - CZ ring entanglement captures correlations between features
-  - Multiple reuploading layers create richer quantum states
-    (Pérez-Salinas 2020, Schuld & Killoran 2019)
+Backward compatible: calling with params=None gives the old
+fixed behaviour (theta=1, phi=0 everywhere).
+
+Architecture unchanged:
+    Layer 0: features[0..7]   offset=0
+    Layer 1: features[8..15]  offset=π/4
+    Layer 2: features[16..19] offset=π/2
+    CZ ring after each layer.
 """
 
+import numpy as np
 from qiskit import QuantumCircuit
 import sys, os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import N_QUBITS, N_REUPLOADING_LAYERS
 
-import numpy as np
+
+# ── Total trainable params = n_qubits * n_layers * 2 (scale + bias) ──
+N_CIRCUIT_PARAMS = N_QUBITS * N_REUPLOADING_LAYERS * 2   # 8*3*2 = 48
+
+
+def unpack_params(params, n_qubits=N_QUBITS, n_layers=N_REUPLOADING_LAYERS):
+    """
+    Unpack flat param vector into (theta, phi) arrays.
+
+    params: (2 * n_qubits * n_layers,) or None
+    Returns:
+        theta: (n_layers, n_qubits)  scale params, init 1.0
+        phi:   (n_layers, n_qubits)  bias  params, init 0.0
+    """
+    n = n_qubits * n_layers
+    if params is None:
+        return np.ones((n_layers, n_qubits)), np.zeros((n_layers, n_qubits))
+    theta = np.array(params[:n]).reshape(n_layers, n_qubits)
+    phi   = np.array(params[n:]).reshape(n_layers, n_qubits)
+    return theta, phi
+
+
+def default_params(n_qubits=N_QUBITS, n_layers=N_REUPLOADING_LAYERS):
+    """Return flat default param vector (theta=1, phi=0)."""
+    theta = np.ones(n_qubits * n_layers)
+    phi   = np.zeros(n_qubits * n_layers)
+    return np.concatenate([theta, phi])
 
 
 def _cz_ring(qc: QuantumCircuit, n_qubits: int):
-    """Apply a ring of CZ gates: q0-q1, q1-q2, ..., q(n-1)-q0."""
+    """Ring of CZ gates: q0-q1, q1-q2, ..., q(n-1)-q0."""
     for i in range(n_qubits - 1):
         qc.cz(i, i + 1)
     if n_qubits > 2:
-        qc.cz(n_qubits - 1, 0)   # close the ring
+        qc.cz(n_qubits - 1, 0)
 
 
-def _encode_layer(qc, x, n_qubits, layer_idx, n_features):
+def _encode_layer(qc, x, n_qubits, layer_idx, n_features,
+                  theta_row, phi_row):
     """
-    Encode one layer of features into the circuit.
+    Encode one layer with trainable scale/bias.
 
-    Each layer uses a different subset of the feature vector and
-    a different angular offset for expressivity:
-      Layer 0: features[0:n_qubits],     offset = 0
-      Layer 1: features[n_qubits:2*n],   offset = π/4
-      Layer 2: features[2*n:3*n],        offset = π/2
-      ...
-
-    If fewer features remain than qubits, remaining qubits get
-    the offset only (no data-dependent rotation).
+    RY angle = theta_i * x[feat] + phi_i + layer_offset
     """
-    offset = layer_idx * np.pi / 4   # π/4 spacing between layers
-    start_idx = layer_idx * n_qubits
+    offset = layer_idx * np.pi / 4
+    start  = layer_idx * n_qubits
 
     for i in range(n_qubits):
-        feat_idx = start_idx + i
+        feat_idx = start + i
+        sc = float(theta_row[i])
+        bi = float(phi_row[i])
         if feat_idx < n_features:
-            qc.ry(float(x[feat_idx]) + offset, i)
+            angle = sc * float(x[feat_idx]) + bi + offset
         else:
-            # Pad qubit with offset-only rotation (still contributes to entanglement)
-            qc.ry(offset, i)
+            angle = bi + offset
+        qc.ry(angle, i)
 
     _cz_ring(qc, n_qubits)
 
 
-def build_reuploading_circuit(x1, x2, n_qubits=N_QUBITS,
+def build_reuploading_circuit(x1, x2,
+                               n_qubits=N_QUBITS,
                                n_layers=N_REUPLOADING_LAYERS,
-                               n_features=None, measure=True):
+                               n_features=None,
+                               measure=True,
+                               params=None):
     """
-    Build a multi-layer data reuploading fidelity circuit: U†(x1) · U(x2).
+    Build fidelity circuit U†(x1)·U(x2) with optional trainable params.
 
-    U(x) encodes ALL features across multiple layers, with each layer
-    encoding n_qubits features and a CZ ring for entanglement.
-
-    Fidelity = P(|00...0⟩) after U†(x1) · U(x2)
+    Fidelity = P(|00...0⟩) after measurement.
 
     Args:
-        x1, x2:     Feature vectors (up to n_qubits * n_layers features)
-        n_qubits:   Number of qubits (default: 8)
-        n_layers:   Number of reuploading layers (default: 3)
-        n_features: Number of features to encode (default: len(x2))
-        measure:    If True, add measurement gates
+        x1, x2:    Feature vectors (up to n_qubits * n_layers features)
+        n_qubits:  Number of qubits
+        n_layers:  Reuploading layers
+        n_features: Features to encode (default: len(x2))
+        measure:   Add measurement
+        params:    Flat (2*n_qubits*n_layers,) param vector or None
+                   [theta_flat | phi_flat]. None = fixed (theta=1, phi=0).
 
     Returns:
         QuantumCircuit
@@ -89,33 +115,36 @@ def build_reuploading_circuit(x1, x2, n_qubits=N_QUBITS,
     if n_features is None:
         n_features = len(x2)
 
-    if measure:
-        qc = QuantumCircuit(n_qubits, n_qubits)
-    else:
-        qc = QuantumCircuit(n_qubits)
+    theta, phi = unpack_params(params, n_qubits, n_layers)
+
+    qc = QuantumCircuit(n_qubits, n_qubits) if measure else QuantumCircuit(n_qubits)
 
     x2 = list(x2)
     x1 = list(x1)
 
     # ── Forward encoding U(x2) ────────────────────────────────────────
     for layer in range(n_layers):
-        _encode_layer(qc, x2, n_qubits, layer, n_features)
+        _encode_layer(qc, x2, n_qubits, layer, n_features,
+                      theta[layer], phi[layer])
 
-    # ── Adjoint U†(x1): reverse all layers in reverse order ──────────
+    # ── Adjoint U†(x1): reverse layers in reverse order ──────────────
     for layer in range(n_layers - 1, -1, -1):
         offset = layer * np.pi / 4
-        start_idx = layer * n_qubits
+        start  = layer * n_qubits
+        sc_row = theta[layer]
+        bi_row = phi[layer]
 
-        # Inverse CZ ring (CZ is self-inverse)
-        _cz_ring(qc, n_qubits)
+        _cz_ring(qc, n_qubits)   # CZ is self-inverse
 
-        # Inverse RY rotations
         for i in range(n_qubits):
-            feat_idx = start_idx + i
+            feat_idx = start + i
+            sc = float(sc_row[i])
+            bi = float(bi_row[i])
             if feat_idx < n_features:
-                qc.ry(-(float(x1[feat_idx]) + offset), i)
+                angle = -(sc * float(x1[feat_idx]) + bi + offset)
             else:
-                qc.ry(-offset, i)
+                angle = -(bi + offset)
+            qc.ry(angle, i)
 
     if measure:
         qc.measure(range(n_qubits), range(n_qubits))
@@ -123,7 +152,9 @@ def build_reuploading_circuit(x1, x2, n_qubits=N_QUBITS,
     return qc
 
 
-# ── Legacy compatibility wrapper ──────────────────────────────────────
-def build_hea_circuit(x1, x2, n_qubits=N_QUBITS, measure=True):
-    """Legacy wrapper: routes to the new reuploading circuit."""
-    return build_reuploading_circuit(x1, x2, n_qubits=n_qubits, measure=measure)
+# ── Legacy compatibility wrappers ─────────────────────────────────────
+
+def build_hea_circuit(x1, x2, n_qubits=N_QUBITS, measure=True, params=None):
+    """Legacy wrapper → reuploading circuit."""
+    return build_reuploading_circuit(x1, x2, n_qubits=n_qubits,
+                                     measure=measure, params=params)
