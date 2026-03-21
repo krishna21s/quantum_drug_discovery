@@ -17,7 +17,7 @@ const moleculeSources = [
   { id: "database", label: "Drug Database", icon: Search, desc: "Search existing compounds" },
   { id: "upload", label: "Upload File", icon: Upload, desc: "SDF, MOL2, PDB files" },
   { id: "draw", label: "Draw Molecule", icon: Pencil, desc: "Molecular editor" },
-  { id: "ai", label: "AI Generate", icon: Sparkles, desc: "AI-designed candidates" },
+  { id: "ai", label: "AI Generate", icon: Sparkles, desc: "RL-optimized EGFR candidates" },
 ];
 
 const proteinTargets = [
@@ -45,10 +45,15 @@ export default function Experiment() {
   const [stageProgress, setStageProgress] = useState(0);
 
   const launchExperiment = useCallback(() => {
+    // If AI Generate is selected, go directly to real candidates
+    if (selectedSource === "ai") {
+      navigate("/molecules");
+      return;
+    }
     setIsRunning(true);
     setPipelineStage(0);
     setStageProgress(0);
-  }, []);
+  }, [selectedSource, navigate]);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -174,27 +179,29 @@ export default function Experiment() {
               {selectedSource === "ai" && (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="liquid-glass rounded-2xl ring-1 ring-quantum/20 p-5 space-y-4">
                   <h3 className="font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-quantum" /> AI Molecule Generation
+                    <Sparkles className="h-4 w-4 text-quantum" /> RL-Optimized Drug Candidates
                   </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-xs text-muted-foreground">Number of candidates</label>
-                      <input type="number" defaultValue={10} className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all" />
+                  <p className="text-sm text-muted-foreground">
+                    50 EGFR-targeted candidates pre-generated via 500-episode RL fine-tuning
+                    with dual-oracle scoring (XGBoost + 8-qubit QSVR).
+                  </p>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="glass-surface rounded-xl p-3">
+                      <p className="text-xs text-muted-foreground">Target</p>
+                      <p className="font-mono font-semibold text-quantum mt-1">EGFR</p>
                     </div>
-                    <div>
-                      <label className="text-xs text-muted-foreground">Max molecular weight</label>
-                      <input type="number" defaultValue={500} className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all" />
+                    <div className="glass-surface rounded-xl p-3">
+                      <p className="text-xs text-muted-foreground">Candidates</p>
+                      <p className="font-mono font-semibold mt-1">50</p>
+                    </div>
+                    <div className="glass-surface rounded-xl p-3">
+                      <p className="text-xs text-muted-foreground">Top pIC₅₀</p>
+                      <p className="font-mono font-semibold text-success mt-1">7.20</p>
                     </div>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Optimization goal</label>
-                    <select className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all">
-                      <option>Maximize Binding Affinity</option>
-                      <option>Minimize Toxicity</option>
-                      <option>Optimize Drug-likeness</option>
-                      <option>Balanced</option>
-                    </select>
-                  </div>
+                  <Button variant="hero" className="w-full rounded-xl" onClick={() => navigate("/molecules")}>
+                    <FlaskConical className="h-4 w-4 mr-2" /> View All Candidates
+                  </Button>
                 </motion.div>
               )}
             </div>
