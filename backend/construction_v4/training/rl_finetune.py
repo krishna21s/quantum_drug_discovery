@@ -304,10 +304,10 @@ def run_rl_finetuning(args):
                 f"elapsed={elapsed:.0f}s"
             )
 
-        # 10. Early stopping
-        if plateau_detected(reward_history):
-            print(f"\n  Early stop at episode {episode} (reward plateau)")
-            break
+        # 10. Early stopping — DISABLED for RL (rewards too noisy)
+        # if plateau_detected(reward_history):
+        #     print(f"\n  Early stop at episode {episode} (reward plateau)")
+        #     break
 
     # ── Save policy ──
     total_time = time.time() - t_start

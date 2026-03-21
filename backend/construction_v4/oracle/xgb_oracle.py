@@ -38,6 +38,9 @@ class XGBOracle:
     Returns 2.0 (floor) for invalid SMILES — no exception raised.
     """
 
+    # Feature dim: Morgan2(1024) + Morgan3(1024) + MACCS(167) + RDKit(2048) + PhysChem(10)
+    FEATURE_DIM = 1024 + 1024 + 167 + 2048 + 10  # = 4273
+
     def __init__(self, checkpoint_dir: str = None):
         ckpt_dir = checkpoint_dir or str(V3_CHECKPOINT_DIR)
 
@@ -105,7 +108,7 @@ class XGBOracle:
         try:
             mol = self._Chem.MolFromSmiles(smiles)
             if mol is None:
-                return np.zeros(4278, dtype=np.float32)
+                return np.zeros(self.FEATURE_DIM, dtype=np.float32)
 
             # Morgan r=2 (1024) + Morgan r=3 (1024) + MACCS (167) + RDKit FP (2048) + PhysChem (10)
             import warnings
@@ -123,7 +126,7 @@ class XGBOracle:
             return np.array(features, dtype=np.float32)
 
         except Exception:
-            return np.zeros(4278, dtype=np.float32)
+            return np.zeros(self.FEATURE_DIM, dtype=np.float32)
 
     def score(self, smiles: str) -> float:
         """
@@ -153,9 +156,8 @@ class XGBOracle:
             return np.array([], dtype=np.float32)
 
         # Extract features for all molecules
-        features = np.zeros((n, 4278), dtype=np.float32)
-        for i, smi in enumerate(smiles_list):
-            features[i] = self._extract_features(smi)
+        feature_list = [self._extract_features(smi) for smi in smiles_list]
+        features = np.stack(feature_list, axis=0)
 
         # Batch transform + predict
         try:

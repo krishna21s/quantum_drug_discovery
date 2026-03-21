@@ -48,7 +48,7 @@ N_QUBITS          = 8     # Reduced from 20 → 8 to avoid exponential concentra
 N_REUPLOADING_LAYERS = 3  # 3 layers × 8 qubits = 24 slots → encodes 20 features
 N_SHOTS           = 1024
 NYSTROM_LANDMARKS = 100  # 100 landmarks for 597 training samples (~17%)
-MAX_TRAIN         = 600
+MAX_TRAIN         = 3000
 MAX_TEST          = 120
 RANDOM_STATE      = 42
 

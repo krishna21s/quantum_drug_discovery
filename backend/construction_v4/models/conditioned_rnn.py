@@ -193,7 +193,7 @@ class ConditionedRNN(CharRNN):
             smiles_list: List[str]
             log_probs:   (n,) tensor of log P(smiles | φ)
         """
-        self.eval()
+        # NOTE: Do NOT call self.eval() here — RL needs train mode for cuDNN LSTM backward
         device_obj = torch.device(device)
         self.to(device_obj)
 
@@ -230,7 +230,7 @@ class ConditionedRNN(CharRNN):
             smi = self.vocab.decode(tokens[i].cpu().tolist(), stop_at_eos=True)
             smiles_list.append(smi)
 
-        self.train()
+
         return smiles_list, log_prob_sum
 
     # ------------------------------------------------------------------
