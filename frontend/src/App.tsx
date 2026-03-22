@@ -17,6 +17,7 @@ import Visualization from "./pages/Visualization";
 import Simulation from "./pages/Simulation";
 import Analysis from "./pages/Analysis";
 import ToxicityScreening from "./pages/ToxicityScreening";
+import Refinement from "./pages/Refinement";
 
 const queryClient = new QueryClient();
 
@@ -40,6 +41,7 @@ const App = () => (
             <Route path="/simulation" element={<Simulation />} />
             <Route path="/analysis" element={<Analysis />} />
             <Route path="/toxicity" element={<ToxicityScreening />} />
+            <Route path="/refinement" element={<Refinement />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

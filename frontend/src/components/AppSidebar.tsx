@@ -17,6 +17,7 @@ import {
   Beaker,
   PieChart,
   AlertTriangle,
+  Sparkles,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -31,6 +32,7 @@ const navItems = [
   { path: "/simulation",   label: "Simulation",     icon: Beaker,          color: "hsl(25 95% 60%)"  },
   { path: "/analysis",     label: "Analysis",       icon: PieChart,        color: "hsl(207 100% 50%)" },
   { path: "/toxicity",     label: "Toxicity",       icon: AlertTriangle,   color: "hsl(0 72% 51%)"   },
+  { path: "/refinement",  label: "Lead Optimize",  icon: Sparkles,        color: "hsl(270 70% 60%)" },
   { path: "/reports",      label: "Reports",        icon: FileText,        color: "hsl(280 80% 65%)" },
 ];
 

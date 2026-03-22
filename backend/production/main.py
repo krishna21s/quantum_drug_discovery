@@ -32,7 +32,15 @@ sys.path.insert(0, _V4_DIR)
 from .routes import router as toxicity_router
 from .candidates_routes import router as candidates_router
 from .binding_routes import router as binding_router
+from .db_routes import router as db_router
+from .admet_routes import router as admet_router
+from .refinement_routes import router as refinement_router
 from .pipeline_loader import load_pipeline
+
+# Database Imports
+sys.path.insert(0, _BACKEND_DIR)  # Ensure backend root is in path structure
+from database.database import engine, Base
+import database.models
 
 
 # ── Lifespan: load all pipelines at startup ─────────────────
@@ -43,6 +51,14 @@ async def lifespan(app: FastAPI):
     print("=" * 60)
     print("  Q-PharmX Production Server — Starting Up")
     print("=" * 60)
+    
+    # 0. Initialize Database Tables
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("  ✅ Database tables initialized successfully")
+    except Exception as e:
+        print(f"  ⚠️  Database alignment failed: {e}")
+
 
     # 1. Toxicity pipeline (V2)
     try:
@@ -147,6 +163,9 @@ app.add_middleware(
 app.include_router(toxicity_router)
 app.include_router(candidates_router)
 app.include_router(binding_router)
+app.include_router(db_router)
+app.include_router(admet_router)
+app.include_router(refinement_router)
 
 
 # ── Root ────────────────────────────────────────────────────

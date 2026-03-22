@@ -8,6 +8,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useEffect, useCallback } from "react";
 import {
   fetchCandidates,
@@ -16,6 +23,7 @@ import {
   type CandidatesResponse,
   type GenerateResponse,
 } from "@/lib/drugApi";
+import { fetchDBCandidates } from "@/lib/dbApi";
 import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -81,7 +89,7 @@ export default function Molecules() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetchCandidates();
+      const res = await fetchDBCandidates();
       setData(res);
       if (res.candidates.length > 0 && !selected) {
         setSelected(res.candidates[0]);
@@ -277,18 +285,19 @@ export default function Molecules() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                   {/* Target protein */}
                   <div>
-                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Target Protein</label>
-                    <select
-                      value={genPdb}
-                      onChange={(e) => setGenPdb(e.target.value)}
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2.5 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400/30 transition-all"
-                    >
-                      {PROTEIN_TARGETS.map((t) => (
-                        <option key={t.pdb} value={t.pdb}>
-                          {t.pdb} — {t.name} ({t.disease})
-                        </option>
-                      ))}
-                    </select>
+                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1 block">Target Protein</label>
+                    <Select value={genPdb} onValueChange={setGenPdb}>
+                      <SelectTrigger className="w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-5 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400/30 transition-all">
+                        <SelectValue placeholder="Select target protein" />
+                      </SelectTrigger>
+                      <SelectContent className="rounded-xl bg-background border-white/10">
+                        {PROTEIN_TARGETS.map((t) => (
+                          <SelectItem key={t.pdb} value={t.pdb} className="cursor-pointer focus:bg-purple-500/20">
+                            {t.pdb} — {t.name} ({t.disease})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Number of candidates */}

@@ -1,13 +1,22 @@
 import AppLayout from "@/components/AppLayout";
 import ToxicityResultPanel from "@/components/ToxicityResultPanel";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   AlertTriangle, Loader2, Sparkles, FlaskConical,
-  ChevronRight, Copy, CheckCircle2,
+  ChevronRight, Copy, CheckCircle2, Database
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { predictToxicity, type PredictResponse } from "@/lib/toxicityApi";
+import { fetchDBCandidates } from "@/lib/dbApi";
+import { Candidate } from "@/lib/drugApi";
 import { cn } from "@/lib/utils";
 
 const exampleMolecules = [
@@ -25,6 +34,16 @@ export default function ToxicityScreening() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PredictResponse | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const [dbCandidates, setDbCandidates] = useState<Candidate[]>([]);
+  const [loadingDb, setLoadingDb] = useState(true);
+
+  useEffect(() => {
+    fetchDBCandidates()
+      .then(res => setDbCandidates(res.candidates))
+      .catch(err => console.error("Failed to fetch DB candidates", err))
+      .finally(() => setLoadingDb(false));
+  }, []);
 
   const runPrediction = useCallback(async () => {
     if (!smiles.trim()) return;
@@ -152,6 +171,43 @@ export default function ToxicityScreening() {
                   </>
                 )}
               </Button>
+            </div>
+
+            {/* Database Candidates */}
+            <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
+              <div
+                className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
+                style={{ background: "linear-gradient(90deg, transparent, hsl(142 100% 50%), transparent)" }}
+              />
+              <h2 className="font-semibold text-base mb-1 flex items-center gap-2">
+                <Database className="h-4 w-4 bg-green-500/20 text-green-400 p-0.5 rounded" /> Database Candidates
+              </h2>
+              <p className="text-xs text-muted-foreground mb-4">
+                Select a previously simulated candidate
+              </p>
+              
+              {loadingDb ? (
+                <div className="flex items-center text-sm text-muted-foreground"><Loader2 className="h-4 w-4 mr-2 animate-spin"/> Loading DB...</div>
+              ) : dbCandidates.length > 0 ? (
+                <Select
+                  onValueChange={(val) => {
+                    if (val) handleExampleClick(val);
+                  }}
+                >
+                  <SelectTrigger className="w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-6 text-sm focus:border-quantum focus:outline-none focus:ring-1 focus:ring-quantum/30 transition-all font-mono">
+                    <SelectValue placeholder="-- Choose Candidate --" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60 rounded-xl bg-background border-white/10">
+                    {dbCandidates.slice(0, 100).map((c) => (
+                      <SelectItem key={c.rank} value={c.smiles} className="font-mono text-xs cursor-pointer focus:bg-quantum/20">
+                        Rank #{c.rank} (pIC₅₀ {c.xgb_pic50.toFixed(2)})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-xs text-muted-foreground">No candidates in DB. Seed DB first.</p>
+              )}
             </div>
 
             {/* Example Molecules */}
