@@ -22,18 +22,18 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
-  { path: "/",              label: "Dashboard",     icon: LayoutDashboard, color: "hsl(207 100% 50%)" },
-  { path: "/experiment",   label: "New Experiment", icon: FlaskConical,    color: "hsl(187 85% 55%)" },
-  { path: "/molecules",    label: "Molecules",      icon: Atom,            color: "hsl(280 80% 65%)" },
-  { path: "/quantum",      label: "Quantum Lab",    icon: Zap,             color: "hsl(38 95% 56%)"  },
-  { path: "/results",      label: "Results",        icon: Activity,        color: "hsl(145 63% 49%)" },
-  { path: "/visualization",label: "3D Viewer",      icon: Microscope,      color: "hsl(187 85% 55%)" },
-  { path: "/admet",        label: "ADMET",          icon: Shield,          color: "hsl(350 85% 62%)" },
-  { path: "/simulation",   label: "Simulation",     icon: Beaker,          color: "hsl(25 95% 60%)"  },
-  { path: "/analysis",     label: "Analysis",       icon: PieChart,        color: "hsl(207 100% 50%)" },
-  { path: "/toxicity",     label: "Toxicity",       icon: AlertTriangle,   color: "hsl(0 72% 51%)"   },
-  { path: "/refinement",  label: "Lead Optimize",  icon: Sparkles,        color: "hsl(270 70% 60%)" },
-  { path: "/reports",      label: "Reports",        icon: FileText,        color: "hsl(280 80% 65%)" },
+  { path: "/", label: "Dashboard", icon: LayoutDashboard, color: "hsl(207 100% 50%)" },
+  { path: "/experiment", label: "New Experiment", icon: FlaskConical, color: "hsl(187 85% 55%)" },
+  { path: "/molecules", label: "Molecules", icon: Atom, color: "hsl(280 80% 65%)" },
+  { path: "/quantum", label: "Quantum Lab", icon: Zap, color: "hsl(38 95% 56%)" },
+  { path: "/results", label: "Results", icon: Activity, color: "hsl(145 63% 49%)" },
+  { path: "/visualization", label: "3D Viewer", icon: Microscope, color: "hsl(187 85% 55%)" },
+  { path: "/admet", label: "ADMET", icon: Shield, color: "hsl(350 85% 62%)" },
+  { path: "/simulation", label: "Simulation", icon: Beaker, color: "hsl(25 95% 60%)" },
+  { path: "/analysis", label: "Analysis", icon: PieChart, color: "hsl(207 100% 50%)" },
+  { path: "/toxicity", label: "Toxicity", icon: AlertTriangle, color: "hsl(0 72% 51%)" },
+  { path: "/refinement", label: "Lead Optimize", icon: Sparkles, color: "hsl(270 70% 60%)" },
+  { path: "/reports", label: "Reports", icon: FileText, color: "hsl(280 80% 65%)" },
 ];
 
 export default function AppSidebar() {
@@ -42,17 +42,11 @@ export default function AppSidebar() {
 
   return (
     <aside
-      className="fixed left-0 top-0 z-40 flex h-screen w-[72px] flex-col items-center py-4 gap-2"
-      style={{
-        background: "var(--glass-bg)",
-        backdropFilter: "blur(var(--glass-blur))",
-        WebkitBackdropFilter: "blur(var(--glass-blur))",
-        borderRight: "1px solid var(--glass-border)",
-      }}
+      className="fixed left-0 top-0 z-40 flex h-screen w-[72px] flex-col items-center py-4 gap-2 bg-white/70 dark:bg-black/30 backdrop-blur-xl border-r border-black/10 dark:border-white/10 transition-colors duration-300"
     >
       {/* Logo */}
       <div className="flex h-12 w-12 items-center justify-center mb-2">
-        <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-quantum/80 shadow-glow-sm">
+        <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-quantum/80 shadow-md dark:shadow-glow-sm">
           <img src="/QpharmXlogo.png" alt="Q-PharmX" width={22} height={22} />
         </div>
       </div>

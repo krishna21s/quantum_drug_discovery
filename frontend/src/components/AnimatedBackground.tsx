@@ -1,7 +1,9 @@
 import { useEffect, useRef } from "react";
+import { useTheme } from "./ThemeProvider";
 
 export default function AnimatedBackground() {
     const canvasRef = useRef<HTMLCanvasElement>(null);
+    const { theme } = useTheme();
 
     useEffect(() => {
         const canvas = canvasRef.current;
@@ -14,6 +16,7 @@ export default function AnimatedBackground() {
 
         let animFrame: number;
         let time = 0;
+        const isDark = theme === "dark";
 
         const resize = () => {
             canvas.width = window.innerWidth;
@@ -24,10 +27,10 @@ export default function AnimatedBackground() {
 
         // Floating orbs in dark blue/teal, matching health dashboard aesthetic
         const orbs = [
-            { x: 0.15, y: 0.25, r: 0.38, hue: 207, sat: 100, lit: 50, speed: 0.5, amp: 0.06 },
-            { x: 0.82, y: 0.7,  r: 0.3,  hue: 187, sat: 85,  lit: 55, speed: 0.4, amp: 0.05 },
-            { x: 0.5,  y: 0.5,  r: 0.22, hue: 280, sat: 75,  lit: 60, speed: 0.6, amp: 0.04 },
-            { x: 0.9,  y: 0.1,  r: 0.2,  hue: 350, sat: 85,  lit: 62, speed: 0.7, amp: 0.05 },
+            { x: 0.15, y: 0.25, r: 0.38, hue: 207, sat: 100, lit: isDark ? 50 : 60, speed: 0.5, amp: 0.06 },
+            { x: 0.82, y: 0.7,  r: 0.3,  hue: 187, sat: 85,  lit: isDark ? 55 : 45, speed: 0.4, amp: 0.05 },
+            { x: 0.5,  y: 0.5,  r: 0.22, hue: 280, sat: 75,  lit: isDark ? 60 : 70, speed: 0.6, amp: 0.04 },
+            { x: 0.9,  y: 0.1,  r: 0.2,  hue: 350, sat: 85,  lit: isDark ? 62 : 70, speed: 0.7, amp: 0.05 },
         ];
 
         // Tiny star particles
@@ -36,8 +39,8 @@ export default function AnimatedBackground() {
             y: Math.random() * canvas.height,
             vx: (Math.random() - 0.5) * 0.18,
             vy: (Math.random() - 0.5) * 0.18,
-            r: Math.random() * 1.2 + 0.3,
-            alpha: Math.random() * 0.25 + 0.05,
+            r: Math.random() * (isDark ? 1.2 : 1.5) + 0.3,
+            alpha: Math.random() * (isDark ? 0.25 : 0.4) + 0.05,
             hue: [207, 187, 280][Math.floor(Math.random() * 3)],
         }));
 
@@ -54,8 +57,10 @@ export default function AnimatedBackground() {
                 const radius = orb.r * Math.min(w, h);
 
                 const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
-                grad.addColorStop(0, `hsla(${orb.hue}, ${orb.sat}%, ${orb.lit}%, 0.08)`);
-                grad.addColorStop(0.5, `hsla(${orb.hue}, ${orb.sat}%, ${orb.lit}%, 0.04)`);
+                const alpha1 = isDark ? 0.08 : 0.12;
+                const alpha2 = isDark ? 0.04 : 0.06;
+                grad.addColorStop(0, `hsla(${orb.hue}, ${orb.sat}%, ${orb.lit}%, ${alpha1})`);
+                grad.addColorStop(0.5, `hsla(${orb.hue}, ${orb.sat}%, ${orb.lit}%, ${alpha2})`);
                 grad.addColorStop(1, "transparent");
                 ctx.fillStyle = grad;
                 ctx.fillRect(0, 0, w, h);

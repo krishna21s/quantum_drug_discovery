@@ -4,10 +4,7 @@ import AnimatedBackground from "./AnimatedBackground";
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <div
-      className="min-h-screen relative"
-      style={{ background: "var(--gradient-glow)", backgroundColor: "hsl(var(--background))" }}
-    >
+    <div className="min-h-screen relative bg-background text-foreground transition-colors duration-300">
       <AnimatedBackground />
       <AppSidebar />
       {/* Offset from slim 72px sidebar */}

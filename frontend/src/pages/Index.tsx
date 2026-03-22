@@ -11,6 +11,7 @@ import { Link } from "react-router-dom";
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer,
 } from "recharts";
+import { MagicCard } from "@/components/ui/magic-card";
 
 const activityData = [
   { day: "Mon", score: 0.62 },
@@ -23,23 +24,23 @@ const activityData = [
 ];
 
 const recentExperiments = [
-  { id: "1", name: "SARS-CoV-2 Mpro Inhibitor",  protein: "6LU7", status: "completed" as const, score: 0.94, date: "Feb 18" },
-  { id: "2", name: "EGFR Kinase Blocker",          protein: "1M17", status: "running"   as const, score: undefined, date: "Feb 19" },
-  { id: "3", name: "HIV-1 Protease Drug",          protein: "1HHP", status: "queued"    as const, score: undefined, date: "Feb 19" },
-  { id: "4", name: "Beta-Lactamase Inhibitor",     protein: "1ZG4", status: "completed" as const, score: 0.78, date: "Feb 17" },
+  { id: "1", name: "SARS-CoV-2 Mpro Inhibitor", protein: "6LU7", status: "completed" as const, score: 0.94, date: "Feb 18" },
+  { id: "2", name: "EGFR Kinase Blocker", protein: "1M17", status: "running" as const, score: undefined, date: "Feb 19" },
+  { id: "3", name: "HIV-1 Protease Drug", protein: "1HHP", status: "queued" as const, score: undefined, date: "Feb 19" },
+  { id: "4", name: "Beta-Lactamase Inhibitor", protein: "1ZG4", status: "completed" as const, score: 0.78, date: "Feb 17" },
 ];
 
 const statusConfig = {
-  completed: { icon: CheckCircle2, label: "Complete",  color: "text-success",     dot: "bg-success"     },
-  running:   { icon: Loader2,      label: "Running",   color: "text-primary",     dot: "bg-primary"     },
-  queued:    { icon: Clock,        label: "Queued",    color: "text-muted-foreground", dot: "bg-muted-foreground" },
+  completed: { icon: CheckCircle2, label: "Complete", color: "text-success", dot: "bg-success" },
+  running: { icon: Loader2, label: "Running", color: "text-primary", dot: "bg-primary" },
+  queued: { icon: Clock, label: "Queued", color: "text-muted-foreground", dot: "bg-muted-foreground" },
 };
 
 const quickActions = [
   { label: "New Experiment", icon: FlaskConical, href: "/experiment", color: "hsl(207 100% 50%)" },
-  { label: "Quantum Lab",    icon: Zap,         href: "/quantum",     color: "hsl(38 95% 56%)"  },
-  { label: "3D Viewer",      icon: Atom,        href: "/visualization",color: "hsl(187 85% 55%)"},
-  { label: "ADMET Screen",   icon: Activity,    href: "/admet",       color: "hsl(350 85% 62%)" },
+  { label: "Quantum Lab", icon: Zap, href: "/quantum", color: "hsl(38 95% 56%)" },
+  { label: "3D Viewer", icon: Atom, href: "/visualization", color: "hsl(187 85% 55%)" },
+  { label: "ADMET Screen", icon: Activity, href: "/admet", color: "hsl(350 85% 62%)" },
 ];
 
 const stagger = {
@@ -91,10 +92,10 @@ export default function Dashboard() {
 
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Experiments"      value="24"    subtitle="8 this week"         icon={FlaskConical} variant="default" index={0} progress={67} trend="↑ 33% from last week" trendUp />
-          <StatCard title="Molecules Tested" value="1,247" subtitle="312 AI-generated"    icon={Atom}        variant="quantum" index={1} progress={82} />
-          <StatCard title="Quantum Runs"     value="89"    subtitle="VQE + VQC combined"  icon={Zap}         variant="warning" index={2} progress={56} />
-          <StatCard title="Active Candidates"value="7"     subtitle="3 high confidence"   icon={Target}      variant="success" index={3} progress={44} />
+          <StatCard title="Experiments" value="24" subtitle="8 this week" icon={FlaskConical} variant="default" index={0} progress={67} trend="↑ 33% from last week" trendUp />
+          <StatCard title="Molecules Tested" value="1,247" subtitle="312 AI-generated" icon={Atom} variant="quantum" index={1} progress={82} />
+          <StatCard title="Quantum Runs" value="89" subtitle="VQE + VQC combined" icon={Zap} variant="warning" index={2} progress={56} />
+          <StatCard title="Active Candidates" value="7" subtitle="3 high confidence" icon={Target} variant="success" index={3} progress={44} />
         </div>
 
         {/* ── Main Grid ── */}
@@ -105,8 +106,9 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-2 glass-card rounded-3xl p-6 glow-line-top relative overflow-hidden"
+            className="lg:col-span-2 relative h-full"
           >
+           <MagicCard className="rounded-3xl p-6 glow-line-top h-full w-full">
             <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
               style={{ background: "linear-gradient(90deg, transparent, hsl(207 100% 50%), transparent)" }}
             />
@@ -128,16 +130,16 @@ export default function Dashboard() {
               <AreaChart data={activityData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stopColor="hsl(207 100% 50%)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="hsl(207 100% 50%)" stopOpacity={0}    />
+                    <stop offset="0%" stopColor="hsl(207 100% 50%)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="hsl(207 100% 50%)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={[0.5, 1]} />
                 <ReTooltip
                   contentStyle={{
-                    background: "var(--glass-bg)",
-                    border: "1px solid var(--glass-border)",
+                    background: "var(--background)",
+                    border: "1px solid var(--border)",
                     borderRadius: "1rem",
                     backdropFilter: "blur(20px)",
                     fontSize: "12px",
@@ -157,6 +159,7 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+           </MagicCard>
           </motion.div>
 
           {/* ── Right: Quick Actions ── */}
@@ -164,8 +167,9 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.3 }}
-            className="glass-card rounded-3xl p-6 relative overflow-hidden"
+            className="relative h-full"
           >
+           <MagicCard className="rounded-3xl p-6 h-full w-full">
             <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
               style={{ background: "linear-gradient(90deg, transparent, hsl(187 85% 55%), transparent)" }}
             />
@@ -181,7 +185,7 @@ export default function Dashboard() {
                 >
                   <Link to={a.href}>
                     <div
-                      className="glass-surface rounded-2xl p-4 flex flex-col items-center gap-2 text-center group transition-all duration-300 hover:scale-105 hover:shadow-card cursor-pointer"
+                      className="bg-muted/20 dark:bg-muted/10 border border-border/50 rounded-2xl p-4 flex flex-col items-center gap-2 text-center group transition-all duration-300 hover:scale-105 hover:shadow-card cursor-pointer"
                       style={{ "--action-color": a.color } as React.CSSProperties}
                     >
                       <div
@@ -208,6 +212,7 @@ export default function Dashboard() {
               </div>
               <p className="text-xs text-muted-foreground mt-1">78% utilisation</p>
             </div>
+           </MagicCard>
           </motion.div>
         </div>
 
@@ -216,8 +221,9 @@ export default function Dashboard() {
           initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.35 }}
-          className="glass-card rounded-3xl p-6 relative overflow-hidden"
+          className="relative mt-5 h-full"
         >
+         <MagicCard className="rounded-3xl p-6 h-full w-full">
           <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
             style={{ background: "linear-gradient(90deg, transparent, hsl(280 75% 60%), transparent)" }}
           />
@@ -240,7 +246,7 @@ export default function Dashboard() {
                   initial={{ opacity: 0, x: -12 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.4 + i * 0.07 }}
-                  className="glass-surface rounded-2xl px-4 py-3 flex items-center gap-3 group hover:scale-[1.01] transition-all duration-200 cursor-default"
+                  className="bg-muted/10 border border-border/30 rounded-2xl px-4 py-3 flex items-center gap-3 group hover:scale-[1.01] transition-all duration-200 cursor-default"
                 >
                   {/* Index */}
                   <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
@@ -276,6 +282,7 @@ export default function Dashboard() {
               );
             })}
           </div>
+         </MagicCard>
         </motion.div>
 
       </div>
