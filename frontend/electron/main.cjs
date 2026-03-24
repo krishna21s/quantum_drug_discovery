@@ -14,13 +14,15 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
     },
-    icon: path.join(__dirname, '../public/favicon.ico'),
+    icon: path.join(__dirname, '../public/dark_logo.png'),
   });
 
   win.removeMenu(); // Completely removes the menu bar
 
   if (isDev) {
-    win.loadURL('http://127.0.0.1:8080');
+    win.loadURL('http://localhost:8085').catch(() => {
+      win.loadURL('http://localhost:8080');
+    });
     // win.webContents.openDevTools();
   } else {
     win.loadFile(path.join(__dirname, '../dist/index.html'));

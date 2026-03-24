@@ -46,8 +46,8 @@ export default function AppSidebar() {
     >
       {/* Logo */}
       <div className="flex h-12 w-12 items-center justify-center mb-2">
-        <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-quantum/80 shadow-md dark:shadow-glow-sm">
-          {/* <img src="/QpharmXlogo.png" alt="Q-PharmX" width={22} height={22} /> */}
+        <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl overflow-hidden p-0.5">
+          <img src={theme === "dark" ? "/dark_logo.png" : "/light_logo.png"} alt="Q-PharmX" className="w-full h-full object-cover rounded-[14px]" />
         </div>
       </div>
 
