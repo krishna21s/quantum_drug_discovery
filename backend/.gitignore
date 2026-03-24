@@ -38,16 +38,6 @@ Thumbs.db
 # Streamlit
 .streamlit/secrets.toml
 
-# Quantum / ML checkpoints (large binary files)
-checkpoints/*.npy
-construction/checkpoints/*.npy
-
-# Trained model artifacts
-*.pkl
-*.h5
-*.pt
-*.pth
-*.onnx
 
 # Logs & reports
 *.log

@@ -13,7 +13,7 @@ import sys, os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from database.database import get_db
-from database.models import Experiment
+from database.models import Experiment, Candidate, BindingAffinity, Toxicity, ADMET
 
 router = APIRouter(prefix="/api/experiments", tags=["Experiments"])
 
@@ -92,9 +92,82 @@ async def save_experiment(body: SaveExperimentRequest, db: Session = Depends(get
         candidates_json=body.candidates_json,
     )
     db.add(exp)
+    
+    # ── Unpack Candidates & prevent duplicates ──
+    added_count = 0
+    for c_data in body.candidates_json:
+        smiles = c_data.get("smiles")
+        if not smiles:
+            continue
+            
+        # Check if exists
+        existing = db.query(Candidate).filter(Candidate.smiles == smiles).first()
+        if existing:
+            continue
+            
+        # 1. Create Candidate
+        target_val = body.target_name or body.pdb_id.upper()
+        new_candidate = Candidate(
+            smiles=smiles,
+            target=target_val,
+            mw=c_data.get("mw"),
+            logp=c_data.get("logp"),
+            tpsa=c_data.get("tpsa"),
+            qed=c_data.get("qed"),
+            sa_score=c_data.get("sa_score"),
+            lipinski_pass=c_data.get("lipinski_pass", False),
+            is_novel=c_data.get("is_novel", True)
+        )
+        db.add(new_candidate)
+        db.flush() # Flush to get new_candidate.id
+        
+        # 2. Add Binding Affinity
+        xgb_score = c_data.get("xgb_pic50")
+        quantum_score = c_data.get("quantum_pic50")
+        if xgb_score is not None or quantum_score is not None:
+            binding = BindingAffinity(
+                candidate_id=new_candidate.id,
+                xgb_pic50=xgb_score,
+                qsvr_pic50=quantum_score,
+                scoring_mode="qsvr_rbf"
+            )
+            db.add(binding)
+            
+        # 3. Add Toxicity
+        tox_data = c_data.get("toxicity")
+        if tox_data is not None:
+            tox = Toxicity(
+                candidate_id=new_candidate.id,
+                canonical_smiles=smiles,
+                toxicity_score=tox_data.get("toxicity_score"),
+                is_toxic=tox_data.get("is_toxic"),
+                alerts_json=tox_data.get("alerts", [])
+            )
+            db.add(tox)
+            
+        # 4. Add ADMET
+        admet_data = c_data.get("admet")
+        if admet_data is not None:
+            admet = ADMET(
+                candidate_id=new_candidate.id,
+                absorption=admet_data.get("absorption", {}).get("score", 0),
+                distribution=admet_data.get("distribution", {}).get("score", 0),
+                metabolism=admet_data.get("metabolism", {}).get("score", 0),
+                excretion=admet_data.get("excretion", {}).get("score", 0),
+                overall_score=admet_data.get("overall", 0),
+                verdict=admet_data.get("verdict", "Unknown")
+            )
+            db.add(admet)
+            
+        added_count += 1
+
     db.commit()
     db.refresh(exp)
-    return {"id": exp.id, "message": "Experiment saved successfully"}
+    return {
+        "id": exp.id, 
+        "message": "Experiment saved successfully",
+        "new_candidates_added": added_count
+    }
 
 
 @router.get("/", response_model=list[ExperimentSummary])
