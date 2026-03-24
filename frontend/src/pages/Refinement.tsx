@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 
 function scoreColor(v: number) {
   if (v > 0.7) return "text-emerald-400";
@@ -36,6 +37,18 @@ export default function Refinement() {
   const [result, setResult] = useState<RefinementResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeStep, setActiveStep] = useState(0);
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Pick up initial SMILES from redirect (e.g. from Molecules page "Optimise" button)
+  useEffect(() => {
+    if (location.state?.initialSmiles) {
+      setSmilesInput(location.state.initialSmiles);
+      // Clean up state so refresh doesn't hold it forever
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location, navigate]);
 
   // Load DB candidates
   useEffect(() => {

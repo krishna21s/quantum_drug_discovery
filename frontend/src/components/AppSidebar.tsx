@@ -18,18 +18,18 @@ import {
   PieChart,
   AlertTriangle,
   Sparkles,
+  Database,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
   { path: "/", label: "Dashboard", icon: LayoutDashboard, color: "hsl(207 100% 50%)" },
   { path: "/experiment", label: "New Experiment", icon: FlaskConical, color: "hsl(187 85% 55%)" },
+  { path: "/experiment/results", label: "Experiment Results", icon: Database, color: "hsl(160 70% 50%)" },
   { path: "/molecules", label: "Molecules", icon: Atom, color: "hsl(280 80% 65%)" },
-  { path: "/quantum", label: "Quantum Lab", icon: Zap, color: "hsl(38 95% 56%)" },
+  { path: "/quantum", label: "Simulation Lab", icon: Zap, color: "hsl(38 95% 56%)" },
   { path: "/visualization", label: "3D Viewer", icon: Microscope, color: "hsl(187 85% 55%)" },
   { path: "/admet", label: "ADMET", icon: Shield, color: "hsl(350 85% 62%)" },
-  { path: "/analysis", label: "Analysis", icon: PieChart, color: "hsl(207 100% 50%)" },
-  { path: "/toxicity", label: "Toxicity", icon: AlertTriangle, color: "hsl(0 72% 51%)" },
   { path: "/refinement", label: "Lead Optimize", icon: Sparkles, color: "hsl(270 70% 60%)" },
   { path: "/reports", label: "Reports", icon: FileText, color: "hsl(280 80% 65%)" },
 ];

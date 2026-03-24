@@ -16,7 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useEffect, useCallback } from "react";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import {
   fetchCandidates,
   type Candidate,
@@ -24,6 +24,7 @@ import {
   type GenerateResponse,
 } from "@/lib/drugApi";
 import { fetchDBCandidates } from "@/lib/dbApi";
+import { useExperiment } from "@/context/ExperimentContext";
 import { cn } from "@/lib/utils";
 import {
   ResponsiveContainer,
@@ -67,6 +68,8 @@ function qedBadge(val: number) {
 
 export default function Molecules() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { session } = useExperiment();
 
   // Pre-computed candidates
   const [data, setData] = useState<CandidatesResponse | null>(null);
@@ -91,8 +94,15 @@ export default function Molecules() {
         setSelected(state.genResult.candidates[0]);
       }
       setLoading(false);
-      // Clear the state so refreshing the page doesn't replay
       window.history.replaceState({}, document.title);
+    } else if (session?.result && !genResult) {
+      // Restore from session context (page refresh scenario)
+      setGenResult(session.result);
+      setViewMode("generated");
+      if (session.result.candidates.length > 0) {
+        setSelected(session.result.candidates[0]);
+      }
+      setLoading(false);
     }
   }, [location.state]);
 
@@ -348,13 +358,24 @@ export default function Molecules() {
                     exit={{ opacity: 0, y: -10 }}
                     className="glass-card rounded-3xl p-6 space-y-4 sticky top-6"
                   >
-                    <div className="flex items-center justify-between">
-                      <h2 className="font-bold text-lg">Candidate #{selected.rank}</h2>
-                      {selected.lipinski_pass && (
-                        <span className="text-xs bg-success/10 text-success ring-1 ring-success/30 px-2 py-0.5 rounded-full font-semibold">
-                          Lipinski ✓
-                        </span>
-                      )}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-3">
+                        <h2 className="font-bold text-lg">Candidate #{selected.rank}</h2>
+                        {selected.lipinski_pass && (
+                          <span className="text-[10px] bg-success/10 text-success ring-1 ring-success/30 px-2 py-0.5 rounded-full font-bold tracking-wide uppercase">
+                            Lipinski ✓
+                          </span>
+                        )}
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="outline" 
+                        onClick={() => navigate('/refinement', { state: { initialSmiles: selected.smiles } })}
+                        className="h-8 px-3 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10 hover:text-primary hover:border-primary/60 transition-colors shadow-sm"
+                      >
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Optimise
+                      </Button>
                     </div>
 
                     <div className="bg-muted/20 rounded-xl p-3">

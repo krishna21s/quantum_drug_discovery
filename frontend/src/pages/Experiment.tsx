@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { generateCandidates, type GenerateResponse } from "@/lib/drugApi";
 import { autoConfigureExperiment, type AutoConfigResponse } from "@/lib/experimentApi";
+import { useExperiment } from "@/context/ExperimentContext";
 
 const steps = [
   { id: 1, title: "Select Target", description: "Choose protein target" },
@@ -50,6 +51,7 @@ const stressModifiers = [
 
 export default function Experiment() {
   const navigate = useNavigate();
+  const { saveSession } = useExperiment();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProtein, setSelectedProtein] = useState<string | null>(null);
   const [customPdb, setCustomPdb] = useState("");
@@ -159,6 +161,20 @@ export default function Experiment() {
             setRunError(apiErrorRef.current);
             setIsRunning(false);
           } else if (apiResultRef.current) {
+            // Save to session context for cross-page access
+            saveSession(
+              {
+                pdb_id: selectedProtein!,
+                n_candidates: nCandidates,
+                temperature,
+                stress_factors: stressFactors,
+                docking_engine: dockingEngine,
+                run_admet: runAdmet,
+                vqe_optimizer: vqeOptimizer,
+                vqe_max_iterations: vqeMaxIterations,
+              },
+              apiResultRef.current
+            );
             navigate("/molecules", {
               state: {
                 genResult: apiResultRef.current,

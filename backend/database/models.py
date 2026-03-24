@@ -80,3 +80,23 @@ class HumanAnatomy(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     candidate = relationship("Candidate", back_populates="human_anatomy")
+
+class Experiment(Base):
+    """Stores complete experiment sessions for persistent access."""
+    __tablename__ = "experiments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    pdb_id = Column(String, index=True, nullable=False)
+    target_name = Column(String)
+    temperature = Column(Float)
+    n_candidates = Column(Integer)
+    stress_factors = Column(JSON)          # e.g. ["mutation", "thermal"]
+    docking_engine = Column(String)
+    vqe_optimizer = Column(String)
+    vqe_max_iterations = Column(Integer)
+    run_admet = Column(Boolean, default=True)
+    generation_time_s = Column(Float)
+    n_sampled = Column(Integer)
+    n_valid = Column(Integer)
+    candidates_json = Column(JSON)         # Full candidates array with all scores
+    created_at = Column(DateTime, default=datetime.utcnow)

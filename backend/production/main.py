@@ -44,6 +44,9 @@ from .db_routes import router as db_router
 from .admet_routes import router as admet_router
 from .refinement_routes import router as refinement_router
 from .experiment_routes import router as experiment_router
+from .quantum_lab_routes import router as quantum_lab_router
+from .experiment_db_routes import router as experiment_db_router
+from .vqc_routes import router as vqc_router
 from .pipeline_loader import load_pipeline
 
 # Database Imports
@@ -176,6 +179,9 @@ app.include_router(db_router)
 app.include_router(admet_router)
 app.include_router(refinement_router)
 app.include_router(experiment_router)
+app.include_router(quantum_lab_router)
+app.include_router(experiment_db_router)
+app.include_router(vqc_router)
 
 
 # ── Root ────────────────────────────────────────────────────
