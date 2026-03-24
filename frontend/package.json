@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://127.0.0.1:8080 && electron electron/main.cjs\"",
+    "electron:dev": "concurrently \"vite --port 8085 --strictPort\" \"wait-on tcp:8085 && electron electron/main.cjs\"",
+    "electron:start": "electron electron/main.cjs",
     "electron:build": "vite build && electron electron/main.cjs"
   },
   "dependencies": {
