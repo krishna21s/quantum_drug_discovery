@@ -40,7 +40,7 @@ export default function StatCard({
       className="h-full cursor-default"
     >
       <MagicCard 
-        className="rounded-3xl p-5 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50"
+        className="rounded-3xl p-5 bg-card border border-border"
         gradientColor={`${cfg.from.replace(')', ' / 0.15)')}`}
       >
         {/* Top accent bar */}

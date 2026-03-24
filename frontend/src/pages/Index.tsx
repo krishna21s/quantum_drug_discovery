@@ -107,7 +107,7 @@ export default function Dashboard() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="lg:col-span-2 relative h-full"
           >
-           <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+          <MagicCard className="rounded-3xl p-5 h-full w-full bg-card border border-border">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-sm">Discovery Activity</h2>
@@ -164,7 +164,7 @@ export default function Dashboard() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="relative h-full"
           >
-           <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+          <MagicCard className="rounded-3xl p-5 h-full w-full bg-card border border-border">
             <h2 className="font-semibold text-sm mb-1">Quick Actions</h2>
             <p className="text-xs text-muted-foreground mb-4">Jump to a module</p>
             <div className="grid grid-cols-2 gap-2">
@@ -209,7 +209,7 @@ export default function Dashboard() {
           transition={{ duration: 0.5, delay: 0.35 }}
           className="relative mt-5 h-full"
         >
-         <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+         <MagicCard className="rounded-3xl p-5 h-full w-full bg-card border border-border">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-semibold text-base">Recent Experiments</h2>
