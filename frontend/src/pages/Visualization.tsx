@@ -4,12 +4,12 @@ import { cn } from "@/lib/utils";
 import {
   Microscope, Activity, Heart, Target, User, Syringe,
   FileText, ActivitySquare, ShieldAlert,
-  RotateCcw, ZoomIn, ZoomOut, Bone, Brain,
+  RotateCcw, ZoomIn, ZoomOut, Bone, Brain, ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Waves, Eye, Loader2, FlaskConical, Pill, AlertTriangle, CheckCircle2,
   Sparkles, MonitorX, Search, Send
 } from "lucide-react";
 import { Canvas, useThree } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Html } from "@react-three/drei";
+import { OrbitControls, useGLTF, Html, GizmoHelper, GizmoViewport } from "@react-three/drei";
 import * as THREE from "three";
 import { predictToxicity, type PredictResponse } from "@/lib/toxicityApi";
 
@@ -19,7 +19,7 @@ import { predictToxicity, type PredictResponse } from "@/lib/toxicityApi";
 
 const anatomySystems = [
   { id: "skeleton", name: "Skeletal", file: "/skeleton.glb", icon: Bone, color: "#ffeccd", description: "Bones & Joints" },
-  { id: "vascular_system", name: "Vascular", file: "/vascular_system.glb", icon: Heart, color: "#cc3333", description: "Heart & Blood Vessels" },
+  { id: "vascular_system", name: "Vascular", file: "/vascular_system.glb", icon: Heart, color: "#8c9eb5", description: "Heart & Blood Vessels" },
   { id: "visceral_system", name: "Visceral", file: "/visceral_system.glb", icon: Waves, color: "#d4a89c", description: "Internal Organs" },
   { id: "nervous_system", name: "Nervous", file: "/nervous_system.glb", icon: Brain, color: "#ffd966", description: "Brain & Nerves" },
 ];
@@ -180,6 +180,7 @@ function Model({ modelPath, controlsRef, systemColor, showTargeting, targetOrgan
 
     if (controlsRef.current) {
       controlsRef.current.target.set(0, 0, 0);
+      controlsRef.current.userData = { ...controlsRef.current.userData, initialCameraZ: cameraZ };
       controlsRef.current.update();
     }
 
@@ -258,7 +259,45 @@ export default function Visualization() {
   const currentSystem = anatomySystems.find(s => s.id === activeSystem) || anatomySystems[0];
 
   const handleRecenter = useCallback(() => {
-    if (controlsRef.current) { controlsRef.current.target.set(0, 0, 0); controlsRef.current.update(); }
+    if (controlsRef.current) { 
+      controlsRef.current.target.set(0, 0, 0); 
+      if (controlsRef.current.userData?.initialCameraZ) {
+        controlsRef.current.object.position.set(0, 0, controlsRef.current.userData.initialCameraZ);
+      }
+      controlsRef.current.update(); 
+    }
+  }, []);
+
+  const handleZoom = useCallback((inward: boolean) => {
+    if (!controlsRef.current) return;
+    const controls = controlsRef.current;
+    
+    // Lerp camera distance smoothly
+    const distance = controls.object.position.distanceTo(controls.target);
+    const scale = inward ? 0.75 : 1.33;
+    
+    // Limit zoom to prevent passing through the model or getting too far
+    const finalDistance = Math.max(1, Math.min(50, distance * scale));
+    
+    controls.object.position.lerp(controls.target, 1 - (finalDistance / distance));
+    controls.update();
+  }, []);
+
+  const handlePan = useCallback((dx: number, dy: number) => {
+    if (!controlsRef.current) return;
+    const controls = controlsRef.current;
+    const camera = controls.object;
+    
+    const right = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 0);
+    const up = new THREE.Vector3().setFromMatrixColumn(camera.matrix, 1);
+    
+    const move = new THREE.Vector3();
+    move.addScaledVector(right, dx);
+    move.addScaledVector(up, dy);
+    
+    controls.target.add(move);
+    camera.position.add(move);
+    controls.update();
   }, []);
 
   const handlePredict = useCallback(async () => {
@@ -425,16 +464,33 @@ export default function Visualization() {
                     <Suspense fallback={<LoadingFallback />}>
                       <ModelWithFallback modelPath={currentSystem.file} controlsRef={controlsRef} systemColor={currentSystem.color} systemId={currentSystem.id} showTargeting={showTargeting} targetOrganNames={selectedDrug.targetOrgans.map(o => o.name)} riskOrganNames={selectedDrug.sideEffectOrgans.map(o => o.name)} />
                     </Suspense>
-                    <OrbitControls ref={controlsRef} enableDamping dampingFactor={0.05} minDistance={1} maxDistance={50} />
+                    <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.05} minDistance={1} maxDistance={50} />
+                    <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
+                      <GizmoViewport axisColors={['#ff3653', '#0adb71', '#2c8fec']} labelColor="white" hideNegativeAxes />
+                    </GizmoHelper>
                   </Canvas>
+                  
+                  {/* Zoom Controls Overlay */}
                   <div className="absolute left-5 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 bg-white/[0.06] border border-white/[0.1] rounded-2xl p-1.5 backdrop-blur-xl z-20">
-                    <button className="h-9 w-9 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"><ZoomIn className="h-4 w-4" /></button>
+                    <button onClick={() => handleZoom(true)} className="h-9 w-9 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Zoom In"><ZoomIn className="h-4 w-4" /></button>
                     <div className="w-full h-[1px] bg-white/10" />
-                    <button className="h-9 w-9 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors"><ZoomOut className="h-4 w-4" /></button>
+                    <button onClick={() => handleZoom(false)} className="h-9 w-9 rounded-xl hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Zoom Out"><ZoomOut className="h-4 w-4" /></button>
                   </div>
+
+                  {/* Directional Pad Overlay */}
+                  <div className="absolute left-5 bottom-8 flex flex-col items-center gap-1 bg-white/[0.06] border border-white/[0.1] rounded-3xl p-2.5 backdrop-blur-xl z-20">
+                    <button onClick={() => handlePan(0, 0.1)} className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Pan Up"><ArrowUp className="h-4 w-4" /></button>
+                    <div className="flex gap-1">
+                      <button onClick={() => handlePan(-0.1, 0)} className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Pan Left"><ArrowLeft className="h-4 w-4" /></button>
+                      <div className="h-8 w-8 flex items-center justify-center"><div className="h-1.5 w-1.5 rounded-full bg-white/20" /></div>
+                      <button onClick={() => handlePan(0.1, 0)} className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Pan Right"><ArrowRight className="h-4 w-4" /></button>
+                    </div>
+                    <button onClick={() => handlePan(0, -0.1)} className="h-8 w-8 rounded-full hover:bg-white/10 flex items-center justify-center text-white/60 hover:text-white transition-colors" title="Pan Down"><ArrowDown className="h-4 w-4" /></button>
+                  </div>
+
                   <button onClick={handleRecenter} className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-white/[0.06] border border-white/[0.1] rounded-full py-2.5 px-5 backdrop-blur-xl z-20 flex items-center gap-2 hover:bg-white/10 transition-colors group">
                     <RotateCcw className="h-3.5 w-3.5 text-white/50 group-hover:text-white transition-colors" />
-                    <span className="text-[11px] font-bold tracking-widest uppercase text-white/50 group-hover:text-white transition-colors">Center View</span>
+                    <span className="text-[11px] font-bold tracking-widest uppercase text-white/50 group-hover:text-white transition-colors">Total Zoom / Fit</span>
                   </button>
                 </>
               ) : (
