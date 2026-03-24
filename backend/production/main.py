@@ -17,6 +17,14 @@ import sys
 import json
 from contextlib import asynccontextmanager
 
+# Load .env FIRST — before any other imports read env vars
+try:
+    from dotenv import load_dotenv
+    _ENV_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    load_dotenv(_ENV_PATH)
+except ImportError:
+    pass
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -35,6 +43,7 @@ from .binding_routes import router as binding_router
 from .db_routes import router as db_router
 from .admet_routes import router as admet_router
 from .refinement_routes import router as refinement_router
+from .experiment_routes import router as experiment_router
 from .pipeline_loader import load_pipeline
 
 # Database Imports
@@ -166,6 +175,7 @@ app.include_router(binding_router)
 app.include_router(db_router)
 app.include_router(admet_router)
 app.include_router(refinement_router)
+app.include_router(experiment_router)
 
 
 # ── Root ────────────────────────────────────────────────────

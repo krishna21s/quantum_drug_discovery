@@ -102,6 +102,11 @@ async def generate_candidates(request: Request, body: GenerateRequest):
             n_candidates=body.n_candidates,
             temperature=body.temperature,
             max_mw=body.max_mw,
+            stress_factors=body.stress_factors,
+            docking_engine=body.docking_engine,
+            run_admet=body.run_admet,
+            vqe_optimizer=body.vqe_optimizer,
+            vqe_max_iterations=body.vqe_max_iterations,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
@@ -115,5 +120,9 @@ async def generate_candidates(request: Request, body: GenerateRequest):
         n_valid=result["n_valid"],
         temperature=result["temperature"],
         generation_time_s=result["generation_time_s"],
+        stress_applied=result.get("stress_applied", []),
+        docking_engine=result.get("docking_engine", "none"),
+        vqe_optimizer=result.get("vqe_optimizer", "COBYLA"),
+        vqe_max_iterations=result.get("vqe_max_iterations", 100),
         candidates=items,
     )

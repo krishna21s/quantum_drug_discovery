@@ -9,12 +9,10 @@ import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import QuantumLab from "./pages/QuantumLab";
 import Experiment from "./pages/Experiment";
-import Results from "./pages/Results";
 import Molecules from "./pages/Molecules";
 import Reports from "./pages/Reports";
 import ADMETPage from "./pages/ADMET";
 import Visualization from "./pages/Visualization";
-import Simulation from "./pages/Simulation";
 import Analysis from "./pages/Analysis";
 import ToxicityScreening from "./pages/ToxicityScreening";
 import Refinement from "./pages/Refinement";
@@ -33,12 +31,10 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/experiment" element={<Experiment />} />
             <Route path="/quantum" element={<QuantumLab />} />
-            <Route path="/results" element={<Results />} />
             <Route path="/molecules" element={<Molecules />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/admet" element={<ADMETPage />} />
             <Route path="/visualization" element={<Visualization />} />
-            <Route path="/simulation" element={<Simulation />} />
             <Route path="/analysis" element={<Analysis />} />
             <Route path="/toxicity" element={<ToxicityScreening />} />
             <Route path="/refinement" element={<Refinement />} />

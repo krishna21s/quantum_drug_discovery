@@ -1,8 +1,23 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FlaskConical, ChevronRight, Zap, CheckCircle2, Loader2, Activity, Thermometer, ShieldAlert, GitBranch } from "lucide-react";
+import {
+  FlaskConical,
+  ChevronRight,
+  Zap,
+  CheckCircle2,
+  Loader2,
+  Activity,
+  Thermometer,
+  ShieldAlert,
+  GitBranch,
+  AlertCircle,
+  Sparkles,
+  Bot,
+} from "lucide-react";
+import { generateCandidates, type GenerateResponse } from "@/lib/drugApi";
+import { autoConfigureExperiment, type AutoConfigResponse } from "@/lib/experimentApi";
 
 const steps = [
   { id: 1, title: "Select Target", description: "Choose protein target" },
@@ -23,6 +38,7 @@ const pipelineStages = [
   { id: 2, label: "Target Stress Simulation", detail: "Applying structural perturbations" },
   { id: 3, label: "Quantum Energy Estimation", detail: "VQE ground state calculation" },
   { id: 4, label: "VQC Prediction", detail: "Variational circuit drug-activity" },
+  { id: 5, label: "ADMET Screening", detail: "Safety & druglikeness profiling" },
 ];
 
 const stressModifiers = [
@@ -36,26 +52,123 @@ export default function Experiment() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProtein, setSelectedProtein] = useState<string | null>(null);
+  const [customPdb, setCustomPdb] = useState("");
   const [stressFactors, setStressFactors] = useState<string[]>([]);
+
+  // Generation parameters (Step 2) — ALL now state-controlled
+  const [nCandidates, setNCandidates] = useState(20);
+  const [temperature, setTemperature] = useState(1.0);
+  const [vqeOptimizer, setVqeOptimizer] = useState("COBYLA");
+  const [vqeMaxIterations, setVqeMaxIterations] = useState(100);
+  const [dockingEngine, setDockingEngine] = useState("autodock_vina");
+  const [runAdmet, setRunAdmet] = useState(true);
+
+  // Auto-configure state
+  const [autoConfiguring, setAutoConfiguring] = useState(false);
+  const [autoConfigResult, setAutoConfigResult] = useState<AutoConfigResponse | null>(null);
+
+  // Pipeline execution state (Step 3)
   const [isRunning, setIsRunning] = useState(false);
   const [pipelineStage, setPipelineStage] = useState(0);
   const [stageProgress, setStageProgress] = useState(0);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  // Ref to hold the API result so the animation can check it
+  const apiResultRef = useRef<GenerateResponse | null>(null);
+  const apiErrorRef = useRef<string | null>(null);
+  const apiDoneRef = useRef(false);
 
   const toggleStress = (id: string) => {
-    setStressFactors(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+    setStressFactors((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
   };
 
+  const handleLoadTarget = () => {
+    const trimmed = customPdb.trim().toUpperCase();
+    if (trimmed.length >= 3) {
+      setSelectedProtein(trimmed);
+    }
+  };
+
+  // ── LLM Auto-Configure ──────────────────────────────────
+  const handleAutoConfig = useCallback(async () => {
+    if (!selectedProtein) return;
+    setAutoConfiguring(true);
+    setAutoConfigResult(null);
+    try {
+      const config = await autoConfigureExperiment(selectedProtein);
+      // Apply all recommended params
+      setTemperature(config.temperature);
+      setNCandidates(config.n_candidates);
+      setVqeOptimizer(config.vqe_optimizer);
+      setVqeMaxIterations(config.vqe_max_iterations);
+      setDockingEngine(config.docking_engine);
+      setStressFactors(config.stress_factors);
+      setRunAdmet(config.run_admet);
+      setAutoConfigResult(config);
+    } catch (err) {
+      console.error("Auto-configure failed:", err);
+    } finally {
+      setAutoConfiguring(false);
+    }
+  }, [selectedProtein]);
+
+  // ── Launch Experiment ───────────────────────────────────
   const launchExperiment = useCallback(() => {
+    if (!selectedProtein) return;
     setIsRunning(true);
     setPipelineStage(0);
     setStageProgress(0);
-  }, []);
+    setRunError(null);
+    apiResultRef.current = null;
+    apiErrorRef.current = null;
+    apiDoneRef.current = false;
 
+    // Fire the actual API call with ALL params
+    generateCandidates({
+      pdb_id: selectedProtein,
+      n_candidates: nCandidates,
+      temperature,
+      stress_factors: stressFactors,
+      docking_engine: dockingEngine,
+      run_admet: runAdmet,
+      vqe_optimizer: vqeOptimizer,
+      vqe_max_iterations: vqeMaxIterations,
+    })
+      .then((result) => {
+        apiResultRef.current = result;
+        apiDoneRef.current = true;
+      })
+      .catch((err) => {
+        apiErrorRef.current =
+          err instanceof Error ? err.message : "Generation failed";
+        apiDoneRef.current = true;
+      });
+  }, [selectedProtein, nCandidates, temperature, stressFactors, dockingEngine, runAdmet, vqeOptimizer, vqeMaxIterations]);
+
+  // Pipeline animation effect
   useEffect(() => {
     if (!isRunning) return;
+
     if (pipelineStage >= pipelineStages.length) {
-      const timeout = setTimeout(() => navigate("/results"), 600);
-      return () => clearTimeout(timeout);
+      const poll = setInterval(() => {
+        if (apiDoneRef.current) {
+          clearInterval(poll);
+          if (apiErrorRef.current) {
+            setRunError(apiErrorRef.current);
+            setIsRunning(false);
+          } else if (apiResultRef.current) {
+            navigate("/molecules", {
+              state: {
+                genResult: apiResultRef.current,
+                fromExperiment: true,
+              },
+            });
+          }
+        }
+      }, 200);
+      return () => clearInterval(poll);
     }
 
     const interval = setInterval(() => {
@@ -115,10 +228,13 @@ export default function Experiment() {
                 <div className="flex gap-3">
                   <input
                     type="text"
+                    value={customPdb}
+                    onChange={(e) => setCustomPdb(e.target.value)}
                     placeholder="e.g., 6LU7"
                     className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                    onKeyDown={(e) => e.key === "Enter" && handleLoadTarget()}
                   />
-                  <Button variant="outline" className="rounded-lg">Load Target</Button>
+                  <Button variant="outline" className="rounded-lg" onClick={handleLoadTarget}>Load Target</Button>
                 </div>
               </div>
 
@@ -150,7 +266,41 @@ export default function Experiment() {
 
           {currentStep === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <h2 className="text-lg font-semibold">Configure Analysis & Target Stress</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-semibold">Configure Analysis & Target Stress</h2>
+                
+                {/* Auto Set Button */}
+                <Button
+                  onClick={handleAutoConfig}
+                  disabled={!selectedProtein || autoConfiguring}
+                  className="rounded-lg gap-2 font-semibold"
+                  style={{
+                    background: autoConfiguring
+                      ? "hsl(var(--muted))"
+                      : "linear-gradient(135deg, hsl(270 70% 55%), hsl(200 85% 50%))",
+                    border: "none",
+                    boxShadow: autoConfiguring ? "none" : "0 4px 16px -4px hsl(270 70% 55% / 0.4)",
+                  }}
+                >
+                  {autoConfiguring ? (
+                    <><Loader2 className="h-4 w-4 animate-spin" /> AI Analyzing...</>
+                  ) : (
+                    <><Bot className="h-4 w-4" /> Auto Set (AI)</>
+                  )}
+                </Button>
+              </div>
+
+              {/* AI Reasoning Toast */}
+              {autoConfigResult && (
+                <div className="border border-purple-500/30 bg-purple-500/5 rounded-xl p-4 flex items-start gap-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <Bot className="h-5 w-5 text-purple-400 shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-purple-300">AI Recommendation</p>
+                    <p className="text-xs text-muted-foreground mt-1">{autoConfigResult.reasoning}</p>
+                  </div>
+                  <button onClick={() => setAutoConfigResult(null)} className="text-muted-foreground hover:text-foreground ml-auto text-xs">✕</button>
+                </div>
+              )}
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-border bg-card p-5 rounded-xl space-y-4">
@@ -158,15 +308,26 @@ export default function Experiment() {
                   <div className="space-y-3">
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">VQE Optimizer</label>
-                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
-                        <option>COBYLA</option>
-                        <option>SPSA</option>
-                        <option>L-BFGS-B</option>
+                      <select
+                        value={vqeOptimizer}
+                        onChange={(e) => setVqeOptimizer(e.target.value)}
+                        className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors"
+                      >
+                        <option value="COBYLA">COBYLA</option>
+                        <option value="SPSA">SPSA</option>
+                        <option value="L-BFGS-B">L-BFGS-B</option>
                       </select>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-muted-foreground">Max Iterations</label>
-                      <input type="number" defaultValue={100} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors" />
+                      <input
+                        type="number"
+                        value={vqeMaxIterations}
+                        onChange={(e) => setVqeMaxIterations(Math.max(10, Math.min(1000, parseInt(e.target.value) || 100)))}
+                        min={10}
+                        max={1000}
+                        className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors"
+                      />
                     </div>
                   </div>
                 </div>
@@ -175,17 +336,55 @@ export default function Experiment() {
                   <h3 className="font-medium text-sm">AI Configuration</h3>
                   <div className="space-y-3">
                     <div>
+                      <label className="text-xs font-medium text-muted-foreground">Number of Candidates</label>
+                      <input
+                        type="number"
+                        value={nCandidates}
+                        onChange={(e) => setNCandidates(Math.max(1, Math.min(100, parseInt(e.target.value) || 20)))}
+                        min={1}
+                        max={100}
+                        className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors"
+                      />
+                    </div>
+                    <div>
                       <label className="text-xs font-medium text-muted-foreground">Docking Engine</label>
-                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
-                        <option>AutoDock Vina</option>
-                        <option>DiffDock</option>
+                      <select
+                        value={dockingEngine}
+                        onChange={(e) => setDockingEngine(e.target.value)}
+                        className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors"
+                      >
+                        <option value="autodock_vina">AutoDock Vina</option>
+                        <option value="gnina">GNINA (CNN-Based)</option>
+                        <option value="none">None</option>
                       </select>
                     </div>
                     <div>
+                      <label className="text-xs font-medium text-muted-foreground">
+                        Temperature ({temperature.toFixed(1)})
+                      </label>
+                      <input
+                        type="range"
+                        min={0.5}
+                        max={2.0}
+                        step={0.1}
+                        value={temperature}
+                        onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                        className="mt-1.5 w-full accent-foreground"
+                      />
+                      <div className="flex justify-between text-[10px] text-muted-foreground">
+                        <span>Conservative</span>
+                        <span>Creative</span>
+                      </div>
+                    </div>
+                    <div>
                       <label className="text-xs font-medium text-muted-foreground">ADMET Prediction</label>
-                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
-                        <option>Enabled (Full Panel)</option>
-                        <option>Disabled</option>
+                      <select
+                        value={runAdmet ? "enabled" : "disabled"}
+                        onChange={(e) => setRunAdmet(e.target.value === "enabled")}
+                        className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors"
+                      >
+                        <option value="enabled">Enabled (Full Panel)</option>
+                        <option value="disabled">Disabled</option>
                       </select>
                     </div>
                   </div>
@@ -256,30 +455,68 @@ export default function Experiment() {
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h2 className="text-lg font-semibold">{isRunning ? "Running Pipeline" : "Ready to Execute"}</h2>
               
-              {!isRunning ? (
+              {/* Error display */}
+              {runError && (
+                <div className="border border-destructive/30 bg-destructive/10 rounded-xl p-4 flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-destructive">Pipeline Failed</p>
+                    <p className="text-xs text-destructive/80 mt-1">{runError}</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-3 rounded-lg"
+                      onClick={() => {
+                        setRunError(null);
+                        launchExperiment();
+                      }}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {!isRunning && !runError && (
                 <div className="border border-border bg-card p-10 rounded-xl text-center flex flex-col items-center justify-center min-h-[300px]">
                   <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-6 border border-border">
                     <Zap className="h-8 w-8 text-foreground" />
                   </div>
                   <h3 className="text-xl font-bold mb-2">Experiment Setup Complete</h3>
-                  <div className="flex flex-wrap justify-center gap-2 text-sm text-muted-foreground mb-8">
-                    <span>Target: {selectedProtein || "None"}</span>
-                    {stressFactors.length > 0 && (
-                      <>
-                        <span>•</span>
-                        <span>Stress Factors: {stressFactors.length}</span>
-                      </>
-                    )}
+                  <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm text-muted-foreground mb-2">
+                    <span>Target: <strong className="text-foreground">{selectedProtein || "None"}</strong></span>
+                    <span>•</span>
+                    <span>Candidates: <strong className="text-foreground">{nCandidates}</strong></span>
+                    <span>•</span>
+                    <span>Temperature: <strong className="text-foreground">{temperature.toFixed(1)}</strong></span>
+                    <span>•</span>
+                    <span>Docking: <strong className="text-foreground">{dockingEngine === "autodock_vina" ? "AutoDock Vina" : dockingEngine === "gnina" ? "GNINA" : "None"}</strong></span>
                   </div>
+                  <div className="flex flex-wrap justify-center gap-x-3 gap-y-1 text-sm text-muted-foreground mb-2">
+                    <span>VQE: <strong className="text-foreground">{vqeOptimizer}</strong> ({vqeMaxIterations} iter)</span>
+                    <span>•</span>
+                    <span>ADMET: <strong className="text-foreground">{runAdmet ? "Enabled" : "Disabled"}</strong></span>
+                  </div>
+                  {stressFactors.length > 0 && (
+                    <p className="text-xs text-muted-foreground mb-6">
+                      Stress Factors: {stressFactors.map((s) => stressModifiers.find((m) => m.id === s)?.label).join(", ")}
+                    </p>
+                  )}
                   <Button size="lg" onClick={launchExperiment} className="rounded-lg h-12 px-8 text-base">
-                    Launch Experiment
+                    <Sparkles className="h-5 w-5 mr-2" /> Launch Experiment
                   </Button>
                 </div>
-              ) : (
+              )}
+
+              {isRunning && (
                 <div className="border border-border bg-card p-8 rounded-xl space-y-8">
                   <div className="flex justify-between items-center mb-2">
                     <span className="font-mono text-sm text-muted-foreground">STATUS: EXECUTING</span>
-                    <span className="font-mono text-sm font-bold">{Math.round((pipelineStage / pipelineStages.length) * 100)}%</span>
+                    <span className="font-mono text-sm font-bold">
+                      {pipelineStage >= pipelineStages.length
+                        ? "Waiting for results..."
+                        : `${Math.round((pipelineStage / pipelineStages.length) * 100)}%`}
+                    </span>
                   </div>
                   
                   <div className="space-y-6">
@@ -323,7 +560,7 @@ export default function Experiment() {
                   {pipelineStage >= pipelineStages.length && (
                     <div className="pt-4 border-t border-border text-center">
                       <span className="text-sm font-bold text-foreground inline-flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4" /> Pipeline Complete. Redirecting...
+                        <Loader2 className="h-4 w-4 animate-spin" /> Finalizing results...
                       </span>
                     </div>
                   )}
