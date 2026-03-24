@@ -37,10 +37,10 @@ const statusConfig = {
 };
 
 const quickActions = [
-  { label: "New Experiment", icon: FlaskConical, href: "/experiment", color: "hsl(207 100% 50%)" },
-  { label: "Quantum Lab", icon: Zap, href: "/quantum", color: "hsl(38 95% 56%)" },
-  { label: "3D Viewer", icon: Atom, href: "/visualization", color: "hsl(187 85% 55%)" },
-  { label: "ADMET Screen", icon: Activity, href: "/admet", color: "hsl(350 85% 62%)" },
+  { label: "New Experiment", icon: FlaskConical, href: "/experiment" },
+  { label: "Quantum Lab", icon: Zap, href: "/quantum" },
+  { label: "3D Viewer", icon: Atom, href: "/visualization" },
+  { label: "ADMET Screen", icon: Activity, href: "/admet" },
 ];
 
 const stagger = {
@@ -76,10 +76,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <Link to="/experiment">
               <Button
-                className="rounded-2xl font-semibold"
+                className="rounded-2xl font-semibold bg-primary text-primary-foreground hover:opacity-90 transition-all"
                 style={{
-                  background: "linear-gradient(135deg, hsl(207 100% 50%), hsl(187 85% 55%))",
-                  boxShadow: "0 8px 24px -4px hsl(207 100% 50% / 0.5)",
+                  boxShadow: "0 8px 24px -4px hsl(var(--primary) / 0.4)",
                   border: "none",
                 }}
               >
@@ -108,21 +107,18 @@ export default function Dashboard() {
             transition={{ duration: 0.5, delay: 0.2 }}
             className="lg:col-span-2 relative h-full"
           >
-           <MagicCard className="rounded-3xl p-6 glow-line-top h-full w-full">
-            <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(207 100% 50%), transparent)" }}
-            />
-            <div className="flex items-center justify-between mb-6">
+           <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="font-semibold text-base">Discovery Activity</h2>
+                <h2 className="font-semibold text-sm">Discovery Activity</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Binding score trend this week</p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 text-xs font-medium text-success">
+                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                   <TrendingUp className="h-3.5 w-3.5" />
                   <span>+12.4%</span>
                 </div>
-                <div className="stat-pill-primary text-[11px]">This Week</div>
+                <div className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-primary/15 text-primary-foreground dark:text-primary">This Week</div>
               </div>
             </div>
 
@@ -130,32 +126,31 @@ export default function Dashboard() {
               <AreaChart data={activityData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
                 <defs>
                   <linearGradient id="activityGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(207 100% 50%)" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="hsl(207 100% 50%)" stopOpacity={0} />
+                    <stop offset="0%" stopColor="hsl(var(--foreground))" stopOpacity={0.15} />
+                    <stop offset="100%" stopColor="hsl(var(--foreground))" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={[0.5, 1]} />
                 <ReTooltip
                   contentStyle={{
-                    background: "var(--background)",
-                    border: "1px solid var(--border)",
-                    borderRadius: "1rem",
-                    backdropFilter: "blur(20px)",
+                    background: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "0.75rem",
                     fontSize: "12px",
                     color: "hsl(var(--foreground))",
-                    boxShadow: "0 8px 32px -8px rgba(0,0,0,0.4)",
+                    boxShadow: "var(--shadow-card)",
                   }}
                   formatter={(val: number) => [val.toFixed(2), "Binding Score"]}
                 />
                 <Area
                   type="monotone"
                   dataKey="score"
-                  stroke="hsl(207 100% 50%)"
-                  strokeWidth={2.5}
+                  stroke="hsl(var(--foreground))"
+                  strokeWidth={2}
                   fill="url(#activityGrad)"
-                  dot={{ fill: "hsl(207 100% 50%)", r: 4, strokeWidth: 0 }}
-                  activeDot={{ r: 6, fill: "hsl(207 100% 60%)", stroke: "hsl(207 100% 80%)", strokeWidth: 1.5 }}
+                  dot={{ fill: "hsl(var(--foreground))", r: 3, strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: "hsl(var(--primary))", stroke: "hsl(var(--foreground))", strokeWidth: 1.5 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -169,13 +164,10 @@ export default function Dashboard() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="relative h-full"
           >
-           <MagicCard className="rounded-3xl p-6 h-full w-full">
-            <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-              style={{ background: "linear-gradient(90deg, transparent, hsl(187 85% 55%), transparent)" }}
-            />
-            <h2 className="font-semibold text-base mb-1">Quick Actions</h2>
-            <p className="text-xs text-muted-foreground mb-5">Jump to a module</p>
-            <div className="grid grid-cols-2 gap-3">
+           <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+            <h2 className="font-semibold text-sm mb-1">Quick Actions</h2>
+            <p className="text-xs text-muted-foreground mb-4">Jump to a module</p>
+            <div className="grid grid-cols-2 gap-2">
               {quickActions.map((a, i) => (
                 <motion.div
                   key={a.href}
@@ -184,17 +176,11 @@ export default function Dashboard() {
                   transition={{ delay: 0.35 + i * 0.07 }}
                 >
                   <Link to={a.href}>
-                    <div
-                      className="bg-muted/20 dark:bg-muted/10 border border-border/50 rounded-2xl p-4 flex flex-col items-center gap-2 text-center group transition-all duration-300 hover:scale-105 hover:shadow-card cursor-pointer"
-                      style={{ "--action-color": a.color } as React.CSSProperties}
-                    >
-                      <div
-                        className="flex h-10 w-10 items-center justify-center rounded-2xl transition-transform group-hover:scale-110"
-                        style={{ background: `${a.color}20`, boxShadow: `0 4px 12px ${a.color}30` }}
-                      >
-                        <a.icon style={{ color: a.color, width: 18, height: 18 }} />
+                    <div className="bg-muted/15 dark:bg-muted/10 border border-border/40 rounded-2xl p-3 flex flex-col items-center gap-2 text-center group transition-all duration-300 hover:-translate-y-1 hover:shadow-lg cursor-pointer max-h-[80px]">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 transition-transform group-hover:scale-110">
+                        <a.icon className="h-4 w-4 text-foreground" />
                       </div>
-                      <span className="text-xs font-semibold leading-tight">{a.label}</span>
+                      <span className="text-[11px] font-semibold leading-tight text-foreground">{a.label}</span>
                     </div>
                   </Link>
                 </motion.div>
@@ -202,15 +188,15 @@ export default function Dashboard() {
             </div>
 
             {/* Mini stat */}
-            <div className="mt-5 pt-4 border-t border-border/40">
+            <div className="mt-4 pt-3 border-t border-border/40">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-muted-foreground">GPU Cluster</span>
-                <span className="stat-pill-success">Online</span>
+                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/15 text-foreground">Online</span>
               </div>
               <div className="mt-2 progress-bar">
-                <div className="progress-fill" style={{ width: "78%", background: "linear-gradient(90deg, hsl(145 63% 49%), hsl(187 85% 55%))" }} />
+                <div className="progress-fill" style={{ width: "78%", background: "hsl(var(--primary))" }} />
               </div>
-              <p className="text-xs text-muted-foreground mt-1">78% utilisation</p>
+              <p className="text-[11px] text-muted-foreground mt-1">78% utilisation</p>
             </div>
            </MagicCard>
           </motion.div>
@@ -223,11 +209,8 @@ export default function Dashboard() {
           transition={{ duration: 0.5, delay: 0.35 }}
           className="relative mt-5 h-full"
         >
-         <MagicCard className="rounded-3xl p-6 h-full w-full">
-          <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-            style={{ background: "linear-gradient(90deg, transparent, hsl(280 75% 60%), transparent)" }}
-          />
-          <div className="flex items-center justify-between mb-5">
+         <MagicCard className="rounded-3xl p-5 h-full w-full bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-semibold text-base">Recent Experiments</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Latest drug discovery runs</p>

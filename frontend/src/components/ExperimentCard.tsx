@@ -13,9 +13,9 @@ interface ExperimentCardProps {
 }
 
 const statusStyles = {
-  running: "bg-quantum/10 text-quantum ring-1 ring-quantum/30",
-  completed: "bg-success/10 text-success ring-1 ring-success/30",
-  queued: "bg-warning/10 text-warning ring-1 ring-warning/30",
+  running: "bg-primary/10 text-foreground ring-1 ring-border",
+  completed: "bg-muted/20 text-foreground ring-1 ring-border",
+  queued: "bg-muted/10 text-muted-foreground ring-1 ring-border",
 };
 
 export default function ExperimentCard({ name, protein, status, score, date, index = 0 }: ExperimentCardProps) {
@@ -43,12 +43,12 @@ export default function ExperimentCard({ name, protein, status, score, date, ind
             </span>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Target: <span className="font-mono text-quantum/80">{protein}</span>
+            Target: <span className="font-mono text-foreground">{protein}</span>
           </p>
           <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
             <span>{date}</span>
             {score !== undefined && (
-              <span className="font-mono text-quantum font-semibold">Score: {score.toFixed(2)}</span>
+              <span className="font-mono text-foreground font-semibold">Score: {score.toFixed(2)}</span>
             )}
           </div>
         </div>

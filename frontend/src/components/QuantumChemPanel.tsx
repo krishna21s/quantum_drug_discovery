@@ -1,7 +1,5 @@
-import { motion } from "framer-motion";
-import { Cpu, Zap } from "lucide-react";
+import { Cpu } from "lucide-react";
 import { useMemo } from "react";
-import { cn } from "@/lib/utils";
 
 /** VQE convergence point */
 interface VQEIteration {
@@ -21,10 +19,10 @@ function generateVQEConvergence(): VQEIteration[] {
 }
 
 const expectationValues = [
-    { operator: "⟨H⟩", value: -75.6284, unit: "Ha", desc: "Ground state energy" },
-    { operator: "⟨Z₁Z₂⟩", value: 0.4231, unit: "", desc: "Qubit–qubit correlation" },
-    { operator: "⟨X₁⟩", value: -0.0042, unit: "", desc: "Single-qubit X expectation" },
-    { operator: "⟨N⟩", value: 10.0, unit: "e⁻", desc: "Electron number" },
+    { operator: "⟨H⟩", value: -75.6284, unit: "Ha", desc: "Ground energy" },
+    { operator: "⟨Z₁Z₂⟩", value: 0.4231, unit: "", desc: "Correlation" },
+    { operator: "⟨X₁⟩", value: -0.0042, unit: "", desc: "Single-qubit X" },
+    { operator: "⟨N⟩", value: 10.0, unit: "e⁻", desc: "Elec. number" },
 ];
 
 const circuitInfo = {
@@ -34,7 +32,7 @@ const circuitInfo = {
     parameters: 32,
     optimizer: "COBYLA",
     ansatz: "UCCSD",
-    backend: "Qiskit Aer (statevector)",
+    backend: "Qiskit Aer",
 };
 
 export default function QuantumChemPanel() {
@@ -56,69 +54,69 @@ export default function QuantumChemPanel() {
     }).join("");
 
     return (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="liquid-glass rounded-2xl p-5 relative overflow-hidden">
-            <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-primary/40 to-transparent" />
-
+        <div className="h-full flex flex-col p-2">
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <Cpu className="h-4 w-4 text-primary" />
-                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quantum Chemistry (VQE)</h3>
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+                        <Cpu className="h-3.5 w-3.5 text-foreground" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Quantum Chem</h3>
                 </div>
-                <span className="px-2 py-0.5 rounded-lg text-xs font-semibold bg-primary/10 text-primary ring-1 ring-primary/30">{circuitInfo.ansatz}</span>
+                <span className="px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-muted/20 text-foreground border border-border/40">{circuitInfo.ansatz}</span>
             </div>
 
             {/* Ground state energy */}
-            <div className="text-center mb-4">
-                <p className="text-xs text-muted-foreground mb-1">VQE Ground State Energy</p>
-                <motion.p initial={{ scale: 0.8 }} animate={{ scale: 1 }} className="text-3xl font-bold font-mono text-primary">
-                    {groundState.toFixed(4)} <span className="text-sm text-muted-foreground">Hartree</span>
-                </motion.p>
+            <div className="text-center mb-5">
+                <p className="text-xs text-muted-foreground mb-1">VQE Ground State</p>
+                <p className="text-3xl font-bold font-mono text-foreground">
+                    {groundState.toFixed(4)} <span className="text-sm text-muted-foreground">Ha</span>
+                </p>
             </div>
 
-            {/* Convergence chart */}
-            <div className="mb-4">
-                <p className="text-xs text-muted-foreground mb-1">Energy Convergence</p>
-                <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-lg bg-background/20 ring-1 ring-white/5">
-                    <defs>
-                        <filter id="vqe-glow"><feGaussianBlur stdDeviation="2" result="b" /><feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge></filter>
-                        <linearGradient id="vqe-grad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="hsl(38,92%,50%)" /><stop offset="100%" stopColor="hsl(142,71%,45%)" /></linearGradient>
-                    </defs>
-                    <text x={pad} y={12} fontSize="8" fill="hsl(215,20%,55%)">E (Ha)</text>
-                    <text x={W - 50} y={H - 5} fontSize="8" fill="hsl(215,20%,55%)">Iteration</text>
-                    <motion.path initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 2 }} d={path} fill="none" stroke="url(#vqe-grad)" strokeWidth="1.5" filter="url(#vqe-glow)" />
+            {/* Convergence chart minified */}
+            <div className="mb-5">
+                <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[11px] text-muted-foreground">Energy Convergence</p>
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-background border border-border/50">
+                    <text x={pad} y={15} fontSize="10" fill="hsl(var(--muted-foreground))">E (Ha)</text>
+                    <text x={W - 55} y={H - 8} fontSize="10" fill="hsl(var(--muted-foreground))">Iter</text>
+                    <path 
+                        d={path} 
+                        fill="none" 
+                        stroke="hsl(var(--foreground))"
+                        strokeWidth="2" 
+                    />
                 </svg>
             </div>
 
             {/* Expectation values */}
-            <div className="mb-4">
-                <p className="text-xs text-muted-foreground mb-2">Expectation Values</p>
-                <div className="space-y-1.5">
+            <div className="mb-5">
+                <p className="text-[11px] text-muted-foreground mb-1.5">Expectation Values</p>
+                <div className="grid grid-cols-2 gap-2">
                     {expectationValues.map((ev) => (
-                        <div key={ev.operator} className="flex items-center justify-between glass-surface rounded-lg px-3 py-1.5">
-                            <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-primary">{ev.operator}</span>
-                                <span className="text-xs text-muted-foreground">{ev.desc}</span>
-                            </div>
-                            <span className="font-mono text-xs font-semibold">{ev.value.toFixed(4)} {ev.unit}</span>
+                        <div key={ev.operator} className="bg-background border border-border/50 rounded-xl px-3 py-2 text-center">
+                            <p className="font-mono text-[10px] text-muted-foreground mb-0.5">{ev.operator}</p>
+                            <p className="font-mono text-xs font-bold text-foreground">{ev.value.toFixed(4)}</p>
                         </div>
                     ))}
                 </div>
             </div>
 
             {/* Circuit info */}
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-4 gap-2 border-t border-border/30 pt-4 mt-auto">
                 {[
                     { label: "Qubits", value: circuitInfo.qubits },
                     { label: "Depth", value: circuitInfo.depth },
                     { label: "Gates", value: circuitInfo.gates },
                     { label: "Params", value: circuitInfo.parameters },
                 ].map((i) => (
-                    <div key={i.label} className="glass-surface rounded-xl p-2 text-center">
-                        <p className="text-xs text-muted-foreground">{i.label}</p>
-                        <p className="font-mono font-semibold text-sm text-primary">{i.value}</p>
+                    <div key={i.label} className="text-center">
+                        <p className="font-mono font-bold text-sm text-foreground">{i.value}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{i.label}</p>
                     </div>
                 ))}
             </div>
-        </motion.div>
+        </div>
     );
 }

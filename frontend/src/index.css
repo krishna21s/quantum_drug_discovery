@@ -74,7 +74,7 @@
     --shadow-elevated: 0 16px 48px -12px hsl(228 35% 2% / 0.85);
     --shadow-float: 0 24px 80px -16px hsl(228 35% 2% / 0.9);
 
-    --glass-bg: rgba(12, 16, 30, 0.25);
+    --glass-bg: rgba(12, 16, 30, 0.327);
     --glass-bg-light: rgba(20, 26, 46, 0.15);
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-strong: rgba(255, 255, 255, 0.15);
@@ -88,72 +88,79 @@
   }
 
   .light {
-    --background: 220 26% 95%;
-    --foreground: 228 40% 12%;
+    /* ── Neo-brutalist clinical palette (greige + neon yellow) ── */
+    --background: 70 8% 91%;        /* #EAEBE6 warm greige */
+    --foreground: 0 0% 13%;         /* #222222 near-black text */
 
-    --card: 0 0% 100%;
-    --card-foreground: 228 40% 12%;
+    --card: 0 0% 100%;              /* pure white cards */
+    --card-foreground: 0 0% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 228 40% 12%;
+    --popover-foreground: 0 0% 13%;
 
-    --primary: 207 100% 44%;
-    --primary-foreground: 0 0% 100%;
+    /* Electric neon yellow-green primary */
+    --primary: 68 90% 45%;          /* #C8E600 neon yellow-green */
+    --primary-foreground: 0 0% 8%;  /* dark text on neon */
 
-    --secondary: 220 18% 91%;
-    --secondary-foreground: 228 40% 12%;
+    --secondary: 60 6% 86%;         /* #DDDDD5 warm light gray */
+    --secondary-foreground: 0 0% 13%;
 
-    --muted: 220 18% 91%;
-    --muted-foreground: 220 12% 48%;
+    --muted: 60 5% 88%;             /* #E2E2DC soft greige muted */
+    --muted-foreground: 0 0% 42%;   /* #6B6B6B */
 
-    --accent: 187 85% 40%;
-    --accent-foreground: 0 0% 100%;
+    /* Teal accent stays for quantum feel */
+    --accent: 68 90% 45%;
+    --accent-foreground: 0 0% 8%;
 
     --destructive: 0 84% 58%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 16% 85%;
-    --input: 220 16% 85%;
-    --ring: 207 100% 44%;
+    --border: 60 5% 82%;            /* #D1D1CA warm border */
+    --input: 60 5% 82%;
+    --ring: 68 90% 45%;
 
     --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 228 40% 20%;
-    --sidebar-primary: 207 100% 44%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 94%;
-    --sidebar-accent-foreground: 228 40% 12%;
-    --sidebar-border: 220 16% 88%;
-    --sidebar-ring: 207 100% 44%;
+    --sidebar-foreground: 0 0% 20%;
+    --sidebar-primary: 68 90% 45%;
+    --sidebar-primary-foreground: 0 0% 8%;
+    --sidebar-accent: 60 6% 94%;
+    --sidebar-accent-foreground: 0 0% 13%;
+    --sidebar-border: 60 5% 88%;
+    --sidebar-ring: 68 90% 45%;
 
     --quantum: 187 85% 38%;
     --quantum-foreground: 0 0% 100%;
     --quantum-glow: 187 85% 38%;
     --success: 145 63% 38%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 95% 48%;
-    --warning-foreground: 0 0% 100%;
+    --warning: 45 100% 50%;         /* bright warm yellow */
+    --warning-foreground: 0 0% 8%;
     --danger: 350 89% 54%;
     --danger-foreground: 0 0% 100%;
-    --surface: 220 20% 97%;
-    --surface-foreground: 228 40% 12%;
+    --surface: 0 0% 100%;           /* white surface */
+    --surface-foreground: 0 0% 13%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(207 100% 44%), hsl(187 85% 40%));
-    --gradient-accent: linear-gradient(135deg, hsl(350 89% 54%), hsl(25 95% 55%));
-    --gradient-card: linear-gradient(160deg, hsl(0 0% 100%), hsl(220 18% 97%));
-    --gradient-glow: radial-gradient(ellipse at 60% 0%, hsl(207 100% 44% / 0.06), transparent 60%),
-      radial-gradient(ellipse at 0% 100%, hsl(187 85% 40% / 0.04), transparent 50%);
+    /* Dark contrast cards (for emphasis panels like the reference image) */
+    --contrast-card: 0 0% 16%;      /* #292929 dark card */
+    --contrast-card-foreground: 0 0% 92%;
 
-    --shadow-glow: 0 0 40px -8px hsl(207 100% 44% / 0.2);
+    --gradient-primary: linear-gradient(135deg, hsl(68 90% 45%), hsl(80 80% 50%));
+    --gradient-accent: linear-gradient(135deg, hsl(68 90% 45%), hsl(55 100% 55%));
+    --gradient-card: linear-gradient(160deg, hsl(0 0% 100%), hsl(60 5% 97%));
+    --gradient-glow: radial-gradient(ellipse at 60% 0%, hsl(68 90% 45% / 0.08), transparent 60%),
+      radial-gradient(ellipse at 0% 100%, hsl(80 80% 50% / 0.05), transparent 50%);
+
+    --shadow-glow: 0 0 40px -8px hsl(68 90% 45% / 0.25);
     --shadow-glow-quantum: 0 0 40px -8px hsl(187 85% 40% / 0.18);
-    --shadow-card: 0 8px 32px -8px hsl(220 26% 70% / 0.3);
-    --shadow-elevated: 0 16px 48px -12px hsl(220 26% 65% / 0.25);
-    --shadow-float: 0 24px 80px -16px hsl(220 26% 60% / 0.2);
+    --shadow-card: 0 4px 20px -4px hsl(0 0% 0% / 0.08);
+    --shadow-elevated: 0 8px 32px -8px hsl(0 0% 0% / 0.12);
+    --shadow-float: 0 16px 48px -12px hsl(0 0% 0% / 0.15);
 
-    --glass-bg: rgba(255, 255, 255, 0.4);
-    --glass-bg-light: rgba(255, 255, 255, 0.25);
-    --glass-border: rgba(255, 255, 255, 0.6);
-    --glass-border-strong: rgba(255, 255, 255, 0.8);
-    --glass-highlight: rgba(255, 255, 255, 0.9);
+    --glass-bg: rgba(255, 255, 255, 0.7);
+    --glass-bg-light: rgba(255, 255, 255, 0.5);
+    --glass-border: rgba(0, 0, 0, 0.08);
+    --glass-border-strong: rgba(0, 0, 0, 0.12);
+    --glass-highlight: rgba(255, 255, 255, 0.95);
     --glass-highlight-strong: rgba(255, 255, 255, 1);
     --glass-blur: 32px;
     --glass-blur-heavy: 72px;

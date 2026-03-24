@@ -1,23 +1,13 @@
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { FlaskConical, Upload, Pencil, Search, Sparkles, ChevronRight, Zap, CheckCircle2, Loader2 } from "lucide-react";
+import { FlaskConical, ChevronRight, Zap, CheckCircle2, Loader2, Activity, Thermometer, ShieldAlert, GitBranch } from "lucide-react";
 
 const steps = [
-  { id: 1, title: "Select Protein Target", description: "Enter PDB ID or upload protein file" },
-  { id: 2, title: "Choose Molecule Source", description: "Database, upload, draw, SMILES, or AI-generate" },
-  { id: 3, title: "Configure Analysis", description: "Set quantum and AI parameters" },
-  { id: 4, title: "Run Experiment", description: "Execute quantum-AI analysis pipeline" },
-];
-
-const moleculeSources = [
-  { id: "database", label: "Drug Database", icon: Search, desc: "Search existing compounds" },
-  { id: "upload", label: "Upload File", icon: Upload, desc: "SDF, MOL2, PDB files" },
-  { id: "draw", label: "Draw Molecule", icon: Pencil, desc: "Molecular editor" },
-  { id: "ai", label: "AI Generate", icon: Sparkles, desc: "RL-optimized EGFR candidates" },
+  { id: 1, title: "Select Target", description: "Choose protein target" },
+  { id: 2, title: "Configure & Stress", description: "Quantum & disease params" },
+  { id: 3, title: "Run Experiment", description: "Execute AI pipeline" },
 ];
 
 const proteinTargets = [
@@ -30,30 +20,36 @@ const proteinTargets = [
 
 const pipelineStages = [
   { id: 1, label: "Molecular Docking", detail: "AutoDock Vina binding pose search" },
-  { id: 2, label: "Quantum Energy Estimation", detail: "VQE ground state calculation" },
-  { id: 3, label: "VQC Prediction", detail: "Variational circuit drug-activity inference" },
-  { id: 4, label: "Binding Simulation", detail: "Protein–ligand interaction scoring" },
+  { id: 2, label: "Target Stress Simulation", detail: "Applying structural perturbations" },
+  { id: 3, label: "Quantum Energy Estimation", detail: "VQE ground state calculation" },
+  { id: 4, label: "VQC Prediction", detail: "Variational circuit drug-activity" },
+];
+
+const stressModifiers = [
+  { id: "mutation", label: "Point Mutation", icon: GitBranch },
+  { id: "folding", label: "Folding Stress", icon: Activity },
+  { id: "thermal", label: "Thermal Instability", icon: Thermometer },
+  { id: "binding", label: "Binding Site Deformation", icon: ShieldAlert },
 ];
 
 export default function Experiment() {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [selectedProtein, setSelectedProtein] = useState<string | null>(null);
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const [stressFactors, setStressFactors] = useState<string[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [pipelineStage, setPipelineStage] = useState(0);
   const [stageProgress, setStageProgress] = useState(0);
 
+  const toggleStress = (id: string) => {
+    setStressFactors(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   const launchExperiment = useCallback(() => {
-    // If AI Generate is selected, go directly to real candidates
-    if (selectedSource === "ai") {
-      navigate("/molecules");
-      return;
-    }
     setIsRunning(true);
     setPipelineStage(0);
     setStageProgress(0);
-  }, [selectedSource, navigate]);
+  }, []);
 
   useEffect(() => {
     if (!isRunning) return;
@@ -68,259 +64,291 @@ export default function Experiment() {
           setPipelineStage((s) => s + 1);
           return 0;
         }
-        return prev + Math.random() * 12 + 3;
+        return prev + Math.random() * 15 + 5;
       });
-    }, 200);
+    }, 150);
     return () => clearInterval(interval);
   }, [isRunning, pipelineStage, navigate]);
 
   return (
     <AppLayout>
-      <div className="p-8 space-y-6">
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+      <div className="p-8 space-y-8 max-w-6xl mx-auto">
+        <div className="flex flex-col gap-2">
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <FlaskConical className="h-6 w-6 text-quantum" />
+            <FlaskConical className="h-6 w-6 text-foreground" />
             New Drug Discovery Experiment
           </h1>
-          <p className="text-muted-foreground mt-1">Step-by-step guided experiment setup</p>
-        </motion.div>
+          <p className="text-muted-foreground text-sm">Configure targeting and simulate extreme condition stress states.</p>
+        </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center gap-2">
+        {/* Minimal Step Indicator */}
+        <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-border">
           {steps.map((step, i) => (
-            <div key={step.id} className="flex items-center gap-2">
-              <button
-                onClick={() => setCurrentStep(step.id)}
-                className={`relative flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold transition-all duration-300 ${step.id === currentStep
-                    ? "bg-primary text-primary-foreground shadow-[0_0_15px_-3px_hsl(217_91%_60%_/_0.5)]"
+            <div key={step.id} className="flex items-center gap-3">
+              <div
+                className={`flex h-8 w-8 items-center justify-center rounded-md font-mono text-xs font-semibold transition-colors duration-200 ${
+                  step.id === currentStep
+                    ? "bg-foreground text-background"
                     : step.id < currentStep
-                      ? "bg-quantum/15 text-quantum ring-1 ring-quantum/30"
-                      : "bg-muted/50 text-muted-foreground"
-                  }`}
+                    ? "bg-muted text-foreground border border-border"
+                    : "bg-transparent text-muted-foreground border border-border/50"
+                }`}
               >
-                {step.id === currentStep && (
-                  <motion.div
-                    layoutId="step-active"
-                    className="absolute inset-0 rounded-full ring-2 ring-primary/30"
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  />
-                )}
-                <span className="relative z-10">{step.id}</span>
-              </button>
-              <span className={`text-sm hidden md:inline ${step.id === currentStep ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                {step.id}
+              </div>
+              <span className={`text-sm ${step.id === currentStep ? "text-foreground font-semibold" : "text-muted-foreground"}`}>
                 {step.title}
               </span>
-              {i < steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              {i < steps.length - 1 && <ChevronRight className="h-4 w-4 text-muted-foreground/50 mx-2" />}
             </div>
           ))}
         </div>
 
-        {/* Step content */}
-        <motion.div key={currentStep} initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4 }} className="space-y-4">
+        {/* Content Area */}
+        <div className="min-h-[400px]">
           {currentStep === 1 && (
-            <div className="space-y-4">
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h2 className="text-lg font-semibold">Select Protein Target</h2>
-              <div className="liquid-glass rounded-2xl p-4">
-                <label className="text-sm text-muted-foreground">Enter PDB ID</label>
-                <div className="mt-2 flex gap-2">
+              
+              <div className="border border-border bg-card p-5 rounded-xl space-y-3">
+                <label className="text-sm font-medium">Enter PDB ID</label>
+                <div className="flex gap-3">
                   <input
                     type="text"
                     placeholder="e.g., 6LU7"
-                    className="flex-1 rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-4 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 font-mono transition-all"
+                    className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
                   />
-                  <Button variant="outline" className="rounded-xl">Load</Button>
+                  <Button variant="outline" className="rounded-lg">Load Target</Button>
                 </div>
               </div>
-              <p className="text-sm text-muted-foreground">Or select from library:</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {proteinTargets.map((p, i) => (
-                  <motion.button
-                    key={p.pdb}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.06 }}
-                    onClick={() => setSelectedProtein(p.pdb)}
-                    className={`liquid-glass rounded-2xl p-4 text-left transition-all duration-300 ${selectedProtein === p.pdb ? "glow-cyan ring-1 ring-quantum/40" : "hover:ring-1 hover:ring-primary/20"
+
+              <div className="space-y-3">
+                <p className="text-sm font-medium">Or select from clinical library:</p>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {proteinTargets.map((p) => (
+                    <button
+                      key={p.pdb}
+                      onClick={() => setSelectedProtein(p.pdb)}
+                      className={`text-left p-5 rounded-xl border transition-colors duration-200 ${
+                        selectedProtein === p.pdb 
+                          ? "border-foreground bg-accent/5" 
+                          : "border-border bg-card hover:bg-muted/50"
                       }`}
-                  >
-                    <p className="font-mono text-sm font-semibold text-quantum">{p.pdb}</p>
-                    <p className="mt-1 text-sm font-medium">{p.name}</p>
-                    <p className="text-xs text-muted-foreground">{p.disease}</p>
-                  </motion.button>
-                ))}
+                    >
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-mono text-sm font-bold">{p.pdb}</span>
+                        {selectedProtein === p.pdb && <CheckCircle2 className="h-4 w-4 text-foreground" />}
+                      </div>
+                      <p className="text-sm font-medium text-foreground">{p.name}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{p.disease}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Choose Molecule Source</h2>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {moleculeSources.map((s, i) => (
-                  <motion.button
-                    key={s.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.08 }}
-                    onClick={() => setSelectedSource(s.id)}
-                    className={`liquid-glass flex items-center gap-4 rounded-2xl p-5 text-left transition-all duration-300 ${selectedSource === s.id ? "glow-cyan ring-1 ring-quantum/40" : "hover:ring-1 hover:ring-primary/20"
-                      }`}
-                  >
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/20">
-                      <s.icon className="h-5 w-5 text-primary" />
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-lg font-semibold">Configure Analysis & Target Stress</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="border border-border bg-card p-5 rounded-xl space-y-4">
+                  <h3 className="font-medium text-sm">Quantum Parameters</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">VQE Optimizer</label>
+                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
+                        <option>COBYLA</option>
+                        <option>SPSA</option>
+                        <option>L-BFGS-B</option>
+                      </select>
                     </div>
                     <div>
-                      <p className="font-semibold">{s.label}</p>
-                      <p className="text-sm text-muted-foreground">{s.desc}</p>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-              {selectedSource === "ai" && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="liquid-glass rounded-2xl ring-1 ring-quantum/20 p-5 space-y-4">
-                  <h3 className="font-semibold flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-quantum" /> RL-Optimized Drug Candidates
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    50 EGFR-targeted candidates pre-generated via 500-episode RL fine-tuning
-                    with dual-oracle scoring (XGBoost + 8-qubit QSVR).
-                  </p>
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div className="glass-surface rounded-xl p-3">
-                      <p className="text-xs text-muted-foreground">Target</p>
-                      <p className="font-mono font-semibold text-quantum mt-1">EGFR</p>
-                    </div>
-                    <div className="glass-surface rounded-xl p-3">
-                      <p className="text-xs text-muted-foreground">Candidates</p>
-                      <p className="font-mono font-semibold mt-1">50</p>
-                    </div>
-                    <div className="glass-surface rounded-xl p-3">
-                      <p className="text-xs text-muted-foreground">Top pIC₅₀</p>
-                      <p className="font-mono font-semibold text-success mt-1">7.20</p>
+                      <label className="text-xs font-medium text-muted-foreground">Max Iterations</label>
+                      <input type="number" defaultValue={100} className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors" />
                     </div>
                   </div>
-                  <Button variant="hero" className="w-full rounded-xl" onClick={() => navigate("/molecules")}>
-                    <FlaskConical className="h-4 w-4 mr-2" /> View All Candidates
-                  </Button>
-                </motion.div>
-              )}
+                </div>
+
+                <div className="border border-border bg-card p-5 rounded-xl space-y-4">
+                  <h3 className="font-medium text-sm">AI Configuration</h3>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">Docking Engine</label>
+                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
+                        <option>AutoDock Vina</option>
+                        <option>DiffDock</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-muted-foreground">ADMET Prediction</label>
+                      <select className="mt-1.5 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-colors">
+                        <option>Enabled (Full Panel)</option>
+                        <option>Disabled</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Novelty Feature: Disease Exploration / Structural Stress */}
+              <div className="border border-border bg-card rounded-xl p-6">
+                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
+                  <div>
+                    <h3 className="font-semibold text-foreground flex items-center gap-2">
+                      <Activity className="h-4 w-4" /> 
+                      Disease Exploration & Structural Stress
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Simulate extreme protein variations to discover robust inhibitors.
+                    </p>
+                  </div>
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground text-background whitespace-nowrap">
+                    Novelty Feature
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+                  {stressModifiers.map((stress) => {
+                    const isActive = stressFactors.includes(stress.id);
+                    return (
+                      <button
+                        key={stress.id}
+                        onClick={() => toggleStress(stress.id)}
+                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border text-center transition-colors duration-200 ${
+                          isActive
+                            ? "border-foreground bg-accent/5 text-foreground"
+                            : "border-border bg-background hover:bg-muted/50 text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <stress.icon className={`h-5 w-5 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />
+                        <span className="text-xs font-medium">{stress.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-5 border-t border-border bg-muted/20 rounded-b-xl -mx-6 -mb-6 px-6 pb-6">
+                  <h4 className="text-xs font-semibold text-foreground mb-3 uppercase tracking-wider flex items-center gap-2">
+                    <Zap className="h-3 w-3" /> Research Impact
+                  </h4>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <div className="text-xs text-muted-foreground flex gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-foreground mt-1.5 shrink-0" />
+                      Helps in unknown disease exploration
+                    </div>
+                    <div className="text-xs text-muted-foreground flex gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-foreground mt-1.5 shrink-0" />
+                      Useful for rare genetic disorders
+                    </div>
+                    <div className="text-xs text-muted-foreground flex gap-2">
+                      <div className="h-1.5 w-1.5 rounded-full bg-foreground mt-1.5 shrink-0" />
+                      Enables drug resistance prediction
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
           {currentStep === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Configure Analysis</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div className="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                  <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-primary/30 to-transparent" />
-                  <h3 className="font-semibold text-sm">Quantum Parameters</h3>
-                  <div>
-                    <label className="text-xs text-muted-foreground">VQE Optimizer</label>
-                    <select className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all">
-                      <option>COBYLA</option>
-                      <option>SPSA</option>
-                      <option>L-BFGS-B</option>
-                    </select>
+            <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <h2 className="text-lg font-semibold">{isRunning ? "Running Pipeline" : "Ready to Execute"}</h2>
+              
+              {!isRunning ? (
+                <div className="border border-border bg-card p-10 rounded-xl text-center flex flex-col items-center justify-center min-h-[300px]">
+                  <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mb-6 border border-border">
+                    <Zap className="h-8 w-8 text-foreground" />
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Max iterations</label>
-                    <input type="number" defaultValue={100} className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm font-mono focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all" />
+                  <h3 className="text-xl font-bold mb-2">Experiment Setup Complete</h3>
+                  <div className="flex flex-wrap justify-center gap-2 text-sm text-muted-foreground mb-8">
+                    <span>Target: {selectedProtein || "None"}</span>
+                    {stressFactors.length > 0 && (
+                      <>
+                        <span>•</span>
+                        <span>Stress Factors: {stressFactors.length}</span>
+                      </>
+                    )}
                   </div>
+                  <Button size="lg" onClick={launchExperiment} className="rounded-lg h-12 px-8 text-base">
+                    Launch Experiment
+                  </Button>
                 </div>
-                <div className="liquid-glass rounded-2xl p-5 space-y-3 relative overflow-hidden">
-                  <div className="absolute top-0 left-4 right-4 h-px bg-gradient-to-r from-transparent via-quantum/30 to-transparent" />
-                  <h3 className="font-semibold text-sm">AI Configuration</h3>
-                  <div>
-                    <label className="text-xs text-muted-foreground">Docking engine</label>
-                    <select className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all">
-                      <option>AutoDock Vina</option>
-                      <option>DiffDock</option>
-                    </select>
+              ) : (
+                <div className="border border-border bg-card p-8 rounded-xl space-y-8">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-mono text-sm text-muted-foreground">STATUS: EXECUTING</span>
+                    <span className="font-mono text-sm font-bold">{Math.round((pipelineStage / pipelineStages.length) * 100)}%</span>
                   </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground">ADMET Prediction</label>
-                    <select className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-all">
-                      <option>Enabled</option>
-                      <option>Disabled</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-lg font-semibold">{isRunning ? "Running Pipeline" : "Ready to Run"}</h2>
-              <AnimatePresence mode="wait">
-                {!isRunning ? (
-                  <motion.div key="ready" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="liquid-glass rounded-2xl p-8 text-center space-y-4">
-                    <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-quantum/10 ring-1 ring-quantum/20">
-                      <Sparkles className="h-8 w-8 text-quantum animate-pulse-glow" />
-                    </div>
-                    <p className="text-lg font-semibold">Experiment configured</p>
-                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      {selectedProtein ? `Target: ${selectedProtein}` : "No target selected"} · {selectedSource ? `Source: ${selectedSource}` : "No source selected"}
-                    </p>
-                    <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                      The quantum-AI pipeline will perform molecular docking, VQE energy estimation, VQC prediction, and binding simulation.
-                    </p>
-                    <Button variant="hero" size="xl" onClick={launchExperiment} className="rounded-xl">
-                      <Zap className="h-5 w-5" />
-                      Launch Experiment
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <motion.div key="running" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="liquid-glass rounded-2xl p-6 space-y-5">
+                  
+                  <div className="space-y-6">
                     {pipelineStages.map((stage, i) => {
                       const isDone = i < pipelineStage;
                       const isActive = i === pipelineStage;
                       const isPending = i > pipelineStage;
+                      
                       return (
-                        <div key={stage.id} className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              {isDone ? (
-                                <CheckCircle2 className="h-5 w-5 text-quantum drop-shadow-[0_0_6px_hsl(187_79%_54%_/_0.5)]" />
-                              ) : isActive ? (
-                                <Loader2 className="h-5 w-5 text-primary animate-spin" />
-                              ) : (
-                                <div className="h-5 w-5 rounded-full border border-muted-foreground/30" />
-                              )}
-                              <span className={`text-sm font-medium ${isPending ? "text-muted-foreground" : ""}`}>{stage.label}</span>
+                        <div key={stage.id} className={`flex gap-4 ${isPending ? 'opacity-40' : 'opacity-100'} transition-opacity duration-300`}>
+                          <div className="mt-0.5">
+                            {isDone ? (
+                              <CheckCircle2 className="h-5 w-5 text-foreground" />
+                            ) : isActive ? (
+                              <Loader2 className="h-5 w-5 text-foreground animate-spin" />
+                            ) : (
+                              <div className="h-5 w-5 rounded-full border border-border" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <div className="flex justify-between items-center">
+                              <span className="text-sm font-semibold">{stage.label}</span>
+                              {isActive && <span className="font-mono text-xs">{Math.min(Math.round(stageProgress), 100)}%</span>}
                             </div>
-                            <span className="text-xs text-muted-foreground font-mono">{isDone ? "100%" : isActive ? `${Math.min(Math.round(stageProgress), 100)}%` : ""}</span>
+                            <p className="text-xs text-muted-foreground">{stage.detail}</p>
+                            
+                            {isActive && (
+                              <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-2">
+                                <div 
+                                  className="h-full bg-foreground transition-all duration-150 ease-linear"
+                                  style={{ width: `${Math.min(stageProgress, 100)}%` }}
+                                />
+                              </div>
+                            )}
                           </div>
-                          <div className="h-2 rounded-full bg-muted/30 overflow-hidden ring-1 ring-white/5">
-                            <motion.div
-                              className="h-full rounded-full bg-gradient-to-r from-primary to-quantum"
-                              style={{ width: `${isDone ? 100 : isActive ? Math.min(stageProgress, 100) : 0}%` }}
-                              transition={{ duration: 0.2 }}
-                            />
-                          </div>
-                          {isActive && <p className="text-xs text-muted-foreground pl-7">{stage.detail}</p>}
                         </div>
                       );
                     })}
-                    {pipelineStage >= pipelineStages.length && (
-                      <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center text-sm font-medium text-quantum neon-text">
-                        ✓ Pipeline complete — loading results…
-                      </motion.p>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                  </div>
+                  
+                  {pipelineStage >= pipelineStages.length && (
+                    <div className="pt-4 border-t border-border text-center">
+                      <span className="text-sm font-bold text-foreground inline-flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4" /> Pipeline Complete. Redirecting...
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
-        </motion.div>
+        </div>
 
         {/* Navigation */}
-        <div className="flex justify-between pt-4">
-          <Button variant="outline" disabled={currentStep === 1} onClick={() => setCurrentStep((s) => s - 1)} className="rounded-xl">
+        <div className="flex justify-between pt-6 border-t border-border">
+          <Button 
+            variant="outline" 
+            disabled={currentStep === 1 || isRunning} 
+            onClick={() => setCurrentStep((s) => s - 1)} 
+            className="rounded-lg px-6"
+          >
             Previous
           </Button>
-          <Button variant="default" disabled={currentStep === 4} onClick={() => setCurrentStep((s) => s + 1)} className="rounded-xl">
-            Next <ChevronRight className="h-4 w-4" />
+          <Button 
+            disabled={currentStep === 3 || isRunning || (currentStep === 1 && !selectedProtein)} 
+            onClick={() => setCurrentStep((s) => s + 1)} 
+            className="rounded-lg px-6"
+          >
+            Continue
           </Button>
         </div>
       </div>

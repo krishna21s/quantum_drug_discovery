@@ -47,7 +47,7 @@ export default function AppSidebar() {
       {/* Logo */}
       <div className="flex h-12 w-12 items-center justify-center mb-2">
         <div className="relative flex items-center justify-center w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-quantum/80 shadow-md dark:shadow-glow-sm">
-          <img src="/QpharmXlogo.png" alt="Q-PharmX" width={22} height={22} />
+          {/* <img src="/QpharmXlogo.png" alt="Q-PharmX" width={22} height={22} /> */}
         </div>
       </div>
 
@@ -65,16 +65,20 @@ export default function AppSidebar() {
                   to={item.path}
                   className={cn(
                     "relative flex h-11 w-11 items-center justify-center rounded-2xl transition-all duration-300",
-                    isActive ? "text-white" : "text-muted-foreground hover:text-foreground"
+                    isActive ? "text-primary-foreground dark:text-white" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="sidebar-pill"
-                      className="absolute inset-0 rounded-2xl"
+                      className="absolute inset-0 rounded-2xl bg-primary dark:bg-transparent"
                       style={{
-                        background: `linear-gradient(135deg, ${item.color}, ${item.color}cc)`,
-                        boxShadow: `0 8px 24px -4px ${item.color}70`,
+                        background: theme === "dark"
+                          ? `linear-gradient(135deg, ${item.color}, ${item.color}cc)`
+                          : undefined,
+                        boxShadow: theme === "dark"
+                          ? `0 8px 24px -4px ${item.color}70`
+                          : "0 4px 16px -4px hsl(68 90% 45% / 0.5)",
                       }}
                       transition={{ type: "spring", stiffness: 400, damping: 32 }}
                     />

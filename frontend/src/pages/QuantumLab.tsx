@@ -1,13 +1,12 @@
 import AppLayout from "@/components/AppLayout";
 import QuantumCircuitDiagram from "@/components/QuantumCircuitDiagram";
-import QuantumOutputPanel from "@/components/QuantumOutputPanel";
 import BindingSimulation from "@/components/BindingSimulation";
 import ProteinTargetMap from "@/components/ProteinTargetMap";
 import DiseasePanel from "@/components/DiseasePanel";
 import QuantumChemPanel from "@/components/QuantumChemPanel";
-import { motion, AnimatePresence } from "framer-motion";
-import { useState, useCallback } from "react";
-import { Sparkles, Loader2, AlertTriangle, Copy, CheckCircle2 } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Sparkles, Loader2, AlertTriangle, Copy, CheckCircle2, Beaker, Network, Zap, Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { scoreBinding, type BindingScoreResponse } from "@/lib/drugApi";
 import { cn } from "@/lib/utils";
@@ -20,300 +19,270 @@ const exampleMolecules = [
   { name: "Benzene", smiles: "c1ccccc1" },
 ];
 
-const container = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.1 } },
-};
-const item = {
-  hidden: { opacity: 0, y: 16 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.5 } },
-};
-
 export default function QuantumLab() {
-  const [smiles, setSmiles] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initSmiles = searchParams.get("smiles") || "";
+  
+  const [smiles, setSmiles] = useState(initSmiles);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<BindingScoreResponse | null>(null);
   const [copied, setCopied] = useState(false);
+  const [hasAutoRun, setHasAutoRun] = useState(false);
 
-  const runScoring = useCallback(async () => {
-    if (!smiles.trim()) return;
+  const runScoring = useCallback(async (s: string) => {
+    if (!s.trim()) return;
     setLoading(true);
     setError(null);
     setResult(null);
     try {
-      const res = await scoreBinding(smiles.trim());
+      const res = await scoreBinding(s.trim());
       setResult(res);
+      setSearchParams(s ? { smiles: s } : {}, { replace: true });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Scoring failed");
     } finally {
       setLoading(false);
     }
-  }, [smiles]);
+  }, [setSearchParams]);
+
+  // Auto-load if passed via URL on mount
+  useEffect(() => {
+    if (initSmiles && !hasAutoRun) {
+      setHasAutoRun(true);
+      runScoring(initSmiles);
+    }
+  }, [initSmiles, hasAutoRun, runScoring]);
 
   const copySmiles = () => {
     if (result?.canonical_smiles) {
       navigator.clipboard.writeText(result.canonical_smiles);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
   return (
     <AppLayout>
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className="p-6 lg:p-8 space-y-6"
-      >
-        {/* Header */}
-        <motion.div variants={item}>
-          <div className="flex items-center gap-2 mb-1">
-            <span className="stat-pill bg-purple-500/15 text-purple-400 text-[11px] font-semibold">
-              <Sparkles className="h-3 w-3" /> Dual Oracle
-            </span>
+      <div className="min-h-screen p-8 max-w-[1600px] mx-auto space-y-8">
+        
+        {/* ── Header ── */}
+        <div className="flex flex-col gap-2 border-b border-border pb-6">
+          <div className="inline-flex items-center gap-2 text-primary font-semibold text-sm">
+            <Sparkles className="h-4 w-4" /> Dual Oracle Prediction
           </div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Quantum <span className="gradient-text">Lab</span>
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">
-            Live binding affinity prediction · XGBoost + 8-qubit QSVR ensemble
+          <h1 className="text-3xl font-bold text-foreground">Quantum Lab Simulator</h1>
+          <p className="text-muted-foreground text-sm max-w-2xl">
+            Live binding affinity prediction using XGBoost + 8-qubit QSVR ensemble.
+            Simulate binding energy and identify structural flaws instantaneously.
           </p>
-        </motion.div>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Input */}
-          <motion.div variants={item} className="lg:col-span-1 space-y-4">
-            {/* SMILES Input */}
-            <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
-              <div
-                className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                style={{ background: "linear-gradient(90deg, transparent, hsl(270 80% 65%), transparent)" }}
-              />
-              <h2 className="font-semibold text-base mb-1">Molecule Input</h2>
-              <p className="text-xs text-muted-foreground mb-4">
-                Enter SMILES to predict binding affinity (pIC₅₀)
+        {/* ── 3-Column Layout Grid ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-3 gap-6 items-start">
+          
+          {/* ── Column 1: Input & Library ── */}
+          <div className="space-y-6 flex flex-col">
+            
+            <div className="bg-card border border-border rounded-2xl p-6 flex flex-col">
+              <h2 className="font-semibold text-base text-foreground flex items-center gap-2">
+                <Beaker className="h-5 w-5" /> Molecule SMILES
+              </h2>
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Enter a valid SMILES string to predict binding affinity
               </p>
+              
               <textarea
                 value={smiles}
                 onChange={(e) => setSmiles(e.target.value)}
-                placeholder="Enter SMILES, e.g. c1ccc(Nc2ncnc3ccccc23)cn1"
+                placeholder="CC1=C(C=C..."
                 className={cn(
-                  "w-full rounded-2xl border bg-muted/20 backdrop-blur-sm px-4 py-3",
-                  "text-sm font-mono focus:outline-none focus:ring-1 transition-all resize-none h-24",
-                  smiles.trim()
-                    ? "border-purple-500/30 focus:ring-purple-500/40"
-                    : "border-white/10 focus:ring-white/20"
+                  "w-full rounded-xl border bg-background px-4 py-3 text-sm font-mono focus:outline-none focus:border-foreground focus:ring-1 focus:ring-foreground transition-all resize-none h-28",
+                  smiles.trim() ? "border-foreground/30" : "border-border"
                 )}
               />
+              
               <Button
-                onClick={runScoring}
+                onClick={() => runScoring(smiles)}
                 disabled={!smiles.trim() || loading}
-                className="w-full mt-4 rounded-2xl font-semibold h-11"
-                style={{
-                  background: "linear-gradient(135deg, hsl(270 80% 55%), hsl(217 91% 60%))",
-                  boxShadow: "0 8px 24px -4px hsl(270 80% 55% / 0.4)",
-                  border: "none",
-                  opacity: !smiles.trim() || loading ? 0.5 : 1,
-                }}
+                className="w-full mt-4 rounded-xl font-semibold h-12 shadow-none border border-transparent"
               >
                 {loading ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scoring…</>
+                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Scoring...</>
                 ) : (
-                  <><Sparkles className="h-4 w-4 mr-2" />Score Binding Affinity</>
-                )}
+                  <><Zap className="h-4 w-4 mr-2" />Simulate Affinity</>
+               )}
               </Button>
             </div>
 
-            {/* Examples */}
-            <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
-              <div
-                className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                style={{ background: "linear-gradient(90deg, transparent, hsl(217 91% 60%), transparent)" }}
-              />
-              <h2 className="font-semibold text-base mb-1">Example Molecules</h2>
-              <p className="text-xs text-muted-foreground mb-4">Click to auto-fill</p>
-              <div className="space-y-2">
-                {exampleMolecules.map((mol, i) => (
-                  <motion.button
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <h2 className="font-semibold text-base mb-4 flex items-center gap-2">
+                <Network className="h-5 w-5" /> Pipeline Architecture
+              </h2>
+              <div className="space-y-3 text-xs text-muted-foreground">
+                <div className="flex items-start gap-3">
+                  <div className="h-2 w-2 rounded-full bg-foreground mt-1 flex-shrink-0" />
+                  <span><strong className="text-foreground font-semibold">XGBoost:</strong> 4273-d fingerprint regression</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-2 w-2 rounded-full bg-primary mt-1 flex-shrink-0" />
+                  <span><strong className="text-foreground font-semibold">QSVR:</strong> 8-qubit quantum kernel SVR</span>
+                </div>
+                <div className="flex items-start gap-3">
+                  <div className="h-2 w-2 rounded-full bg-muted-foreground mt-1 flex-shrink-0" />
+                  <span><strong className="text-foreground font-semibold">Target:</strong> EGFR (PDB 1M17) domain</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-card border border-border rounded-2xl p-6">
+              <h2 className="font-semibold text-base mb-1">Testing Library</h2>
+              <p className="text-xs text-muted-foreground mb-4">Click any known structure</p>
+              <div className="grid grid-cols-1 gap-2">
+                {exampleMolecules.map((mol) => (
+                  <button
                     key={mol.name}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.15 + i * 0.05 }}
-                    onClick={() => { setSmiles(mol.smiles); setResult(null); setError(null); }}
+                    onClick={() => { 
+                      setSmiles(mol.smiles); 
+                      runScoring(mol.smiles); 
+                    }}
                     className={cn(
-                      "w-full glass-surface rounded-2xl px-4 py-3 text-left transition-all duration-200",
-                      "hover:scale-[1.02] hover:ring-1 hover:ring-purple-400/20 group",
-                      smiles === mol.smiles && "ring-1 ring-purple-400/40 bg-purple-400/5"
+                      "w-full bg-background border rounded-xl px-4 py-3 text-left transition-colors duration-200 group flex justify-between items-center",
+                      smiles === mol.smiles ? "border-foreground bg-accent/5" : "border-border hover:bg-muted/50"
                     )}
                   >
-                    <p className="text-sm font-semibold">{mol.name}</p>
-                    <p className="text-xs font-mono text-muted-foreground mt-0.5 truncate">{mol.smiles}</p>
-                  </motion.button>
+                    <div className="min-w-0 pr-2">
+                      <p className="text-sm font-semibold text-foreground truncate">{mol.name}</p>
+                      <p className="text-xs font-mono text-muted-foreground mt-0.5 truncate">{mol.smiles}</p>
+                    </div>
+                    {smiles === mol.smiles && <CheckCircle2 className="h-4 w-4 text-foreground flex-shrink-0" />}
+                  </button>
                 ))}
               </div>
             </div>
 
-            {/* Architecture */}
-            <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
-              <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                style={{ background: "linear-gradient(90deg, transparent, hsl(187 79% 54%), transparent)" }} />
-              <h2 className="font-semibold text-base mb-2">Pipeline Architecture</h2>
-              <div className="space-y-2 text-xs text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary" />
-                  <span><strong className="text-foreground">XGBoost:</strong> 4273-d fingerprint regression</span>
+          </div>
+
+          {/* ── Column 2: Oracle Results ── */}
+          <div className="space-y-6 flex flex-col">
+            
+            {loading && (
+              <div className="bg-card border border-border rounded-2xl p-10 text-center flex flex-col items-center justify-center h-full min-h-[400px]">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted border border-border mb-6">
+                  <Loader2 className="h-8 w-8 text-foreground animate-spin" />
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-purple-400" />
-                  <span><strong className="text-foreground">QSVR:</strong> 8-qubit kernel SVR (Nyström, 100 landmarks)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="h-1.5 w-1.5 rounded-full bg-quantum" />
-                  <span><strong className="text-foreground">Target:</strong> EGFR (PDB 1M17) kinase domain</span>
-                </div>
+                <p className="text-xl font-bold text-foreground mb-2">Simulating</p>
+                <p className="text-sm text-muted-foreground">Running dual oracle scoring...</p>
               </div>
-            </div>
-          </motion.div>
+            )}
 
-          {/* Right: Results + Visualizations */}
-          <motion.div variants={item} className="lg:col-span-2 space-y-6">
-            <AnimatePresence mode="wait">
-              {/* Loading */}
-              {loading && (
-                <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="glass-card rounded-3xl p-12 text-center space-y-4">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-purple-400/10 ring-1 ring-purple-400/20">
-                    <Sparkles className="h-8 w-8 text-purple-400 animate-pulse" />
+            {error && (
+              <div className="bg-card border border-destructive/50 rounded-2xl p-10 text-center flex-grow">
+                <AlertTriangle className="h-12 w-12 text-destructive mx-auto mb-4" />
+                <p className="text-xl font-bold text-destructive mb-2">Failed</p>
+                <p className="text-sm text-muted-foreground mb-6">{error}</p>
+                <Button variant="outline" onClick={() => runScoring(smiles)} className="rounded-lg">
+                  Retry
+                </Button>
+              </div>
+            )}
+
+            {result && !loading && (
+              <>
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="bg-card border border-border rounded-2xl p-6 text-center shadow-sm">
+                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-3">XGBoost Oracle</p>
+                    <p className="text-4xl font-black text-foreground tabular-nums tracking-tighter">
+                      {result.xgb_pic50?.toFixed(2) ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 font-medium">pIC₅₀ Score</p>
                   </div>
-                  <p className="text-lg font-semibold">Computing Binding Affinity</p>
-                  <p className="text-sm text-muted-foreground">Running XGBoost + QSVR dual oracle scoring...</p>
-                  <div className="flex justify-center gap-2 mt-4">
-                    {["Feature Extraction", "XGBoost", "QSVR Kernel"].map((step, i) => (
-                      <motion.div key={step} initial={{ opacity: 0.3 }}
-                        animate={{ opacity: [0.3, 1, 0.3] }}
-                        transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.3 }}
-                        className="px-3 py-1 rounded-full glass-surface text-xs font-medium">
-                        {step}
-                      </motion.div>
-                    ))}
+                  <div className="bg-card border border-border rounded-2xl p-6 text-center shadow-sm">
+                    <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-widest mb-3">Quantum SVR</p>
+                    <p className="text-4xl font-black text-foreground tabular-nums tracking-tighter">
+                      {result.qsvr_pic50?.toFixed(2) ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-2 font-medium">pIC₅₀ Score</p>
                   </div>
-                </motion.div>
-              )}
+                </div>
 
-              {/* Error */}
-              {error && (
-                <motion.div key="error" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                  className="glass-card rounded-3xl p-8 text-center space-y-3 ring-1 ring-destructive/30">
-                  <AlertTriangle className="h-10 w-10 text-destructive mx-auto" />
-                  <p className="text-lg font-semibold text-destructive">Scoring Failed</p>
-                  <p className="text-sm text-muted-foreground">{error}</p>
-                  <Button variant="outline" onClick={runScoring} className="rounded-xl mt-2">Retry</Button>
-                </motion.div>
-              )}
-
-              {/* Result */}
-              {result && !loading && (
-                <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="space-y-4">
-                  {/* Dual Score Cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="glass-card rounded-3xl p-6 text-center relative overflow-hidden">
-                      <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                        style={{ background: "linear-gradient(90deg, transparent, hsl(187 79% 54%), transparent)" }} />
-                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">XGBoost pIC₅₀</p>
-                      <p className="text-5xl font-bold text-quantum mt-2">
-                        {result.xgb_pic50?.toFixed(2) ?? "—"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        IC₅₀ ≈ {result.xgb_pic50 ? `${(Math.pow(10, -result.xgb_pic50) * 1e9).toFixed(0)} nM` : "—"}
-                      </p>
+                <div className="bg-card border border-border rounded-2xl p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-bold text-sm text-foreground">Canonical Details</h3>
+                    <Button variant="ghost" size="icon" onClick={copySmiles} className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                      {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                  <div className="bg-background border border-border rounded-lg p-3 overflow-hidden mb-4">
+                    <p className="font-mono text-xs break-all text-foreground select-all leading-relaxed">
+                      {result.canonical_smiles ?? result.smiles}
+                    </p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+                    <div className="bg-background border border-border rounded-md p-2">
+                       <span className="text-muted-foreground block mb-0.5">Mode</span>
+                       <span className="font-bold">{result.scoring_mode}</span>
                     </div>
-                    <div className="glass-card rounded-3xl p-6 text-center relative overflow-hidden">
-                      <div className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                        style={{ background: "linear-gradient(90deg, transparent, hsl(270 80% 65%), transparent)" }} />
-                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">QSVR pIC₅₀</p>
-                      <p className="text-5xl font-bold text-purple-400 mt-2">
-                        {result.qsvr_pic50?.toFixed(2) ?? "—"}
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        IC₅₀ ≈ {result.qsvr_pic50 ? `${(Math.pow(10, -result.qsvr_pic50) * 1e9).toFixed(0)} nM` : "—"}
-                      </p>
+                    <div className="bg-background border border-border rounded-md p-2">
+                       <span className="text-muted-foreground block mb-0.5">Latency</span>
+                       <span className="font-bold">{(result.latency_s * 1000).toFixed(0)} ms</span>
                     </div>
                   </div>
-
-                  {/* Details */}
-                  <div className="glass-card rounded-3xl p-6 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold">Scoring Details</h3>
-                      <button onClick={copySmiles} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors">
-                        {copied ? <CheckCircle2 className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
-                        {copied ? "Copied!" : "Copy SMILES"}
-                      </button>
-                    </div>
-                    <div className="bg-muted/20 rounded-xl p-3">
-                      <p className="font-mono text-xs break-all">{result.canonical_smiles ?? result.smiles}</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Scoring mode</span>
-                        <span className="font-mono">{result.scoring_mode}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Latency</span>
-                        <span className="font-mono">{(result.latency_s * 1000).toFixed(0)}ms</span>
-                      </div>
-                    </div>
-                    {/* Activity interpretation */}
-                    <div className="bg-muted/10 rounded-xl p-3 mt-2">
-                      <p className="text-xs text-muted-foreground">
-                        {(result.xgb_pic50 ?? 0) >= 7.0
-                          ? "🟢 Strong predicted binder — lead compound quality (IC₅₀ < 100 nM)"
-                          : (result.xgb_pic50 ?? 0) >= 6.0
-                            ? "🟡 Moderate predicted activity — optimization candidate"
-                            : "🟠 Weak predicted activity — may need structural modification"}
-                      </p>
-                    </div>
+                  <div className="bg-muted/30 border border-border rounded-lg p-3 flex items-start gap-2">
+                    <Target className="h-4 w-4 text-foreground mt-0.5 flex-shrink-0" />
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      {(result.xgb_pic50 ?? 0) >= 7.0
+                        ? "Strong Binder — Demonstrates lead compound quality."
+                        : (result.xgb_pic50 ?? 0) >= 6.0
+                          ? "Moderate Binder — Potential optimization candidate."
+                          : "Weak Binder — Sub-optimal targeting."}
+                    </p>
                   </div>
-                </motion.div>
-              )}
+                </div>
+                
+                <div className="bg-card border border-border rounded-2xl overflow-hidden p-3">
+                  <QuantumChemPanel />
+                </div>
+              </>
+            )}
 
-              {/* Empty */}
-              {!loading && !error && !result && (
-                <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                  className="glass-card rounded-3xl p-12 text-center space-y-4">
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-muted/30 ring-1 ring-white/10">
-                    <Sparkles className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <p className="text-lg font-semibold text-muted-foreground">No Prediction Yet</p>
-                  <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                    Enter a SMILES string and click <strong>Score Binding Affinity</strong> to
-                    predict pIC₅₀ using the dual XGBoost + QSVR quantum oracle.
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {!loading && !error && !result && (
+              <div className="bg-card border border-border border-dashed rounded-2xl p-10 text-center flex flex-col items-center justify-center min-h-[400px]">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border mb-4">
+                  <Sparkles className="h-7 w-7 text-muted-foreground" />
+                </div>
+                <p className="text-lg font-bold text-foreground mb-2">Load Candidate</p>
+                <p className="text-xs text-muted-foreground max-w-[250px] mx-auto leading-relaxed">
+                  Provide a SMILES string representing the molecular structure to invoke the algorithms.
+                </p>
+              </div>
+            )}
 
-            {/* Bottom visualization row */}
-            <motion.div variants={item} className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          </div>
+
+          {/* ── Column 3: Visualizations & Modeling ── */}
+          <div className="space-y-6 flex flex-col">
+            <div className="bg-card border border-border rounded-2xl overflow-hidden min-h-[250px] p-2">
               <ProteinTargetMap />
-              <div className="space-y-6">
-                <DiseasePanel />
-                <QuantumChemPanel />
-              </div>
-            </motion.div>
-
-            <motion.div variants={item}>
+            </div>
+            
+            <div className="bg-card border border-border rounded-2xl overflow-hidden p-2">
+              <DiseasePanel />
+            </div>
+            
+            <div className="bg-card border border-border rounded-2xl overflow-hidden p-4">
               <QuantumCircuitDiagram />
-            </motion.div>
+            </div>
+          </div>
 
-            <motion.div variants={item}>
-              <BindingSimulation />
-            </motion.div>
-          </motion.div>
         </div>
-      </motion.div>
+
+        {/* ── Full Width Binding Simulation (Because it's usually wide) ── */}
+        <div className="w-full bg-card border border-border rounded-2xl overflow-hidden p-4">
+          <BindingSimulation />
+        </div>
+
+      </div>
     </AppLayout>
   );
 }

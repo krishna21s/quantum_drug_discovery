@@ -18,11 +18,11 @@ interface StatCardProps {
 }
 
 const variantConfig = {
-  default:  { from: "hsl(207 100% 50%)", to: "hsl(207 100% 35%)", text: "text-primary",    bg: "bg-primary/12",  ring: "ring-primary/25"  },
-  quantum:  { from: "hsl(187 85% 55%)",  to: "hsl(187 85% 35%)",  text: "text-quantum",    bg: "bg-quantum/12",  ring: "ring-quantum/25"  },
-  success:  { from: "hsl(145 63% 49%)",  to: "hsl(145 63% 30%)",  text: "text-success",    bg: "bg-success/12",  ring: "ring-success/25"  },
-  warning:  { from: "hsl(38 95% 56%)",   to: "hsl(38 95% 38%)",   text: "text-warning",    bg: "bg-warning/12",  ring: "ring-warning/25"  },
-  danger:   { from: "hsl(350 85% 62%)",  to: "hsl(350 85% 42%)",  text: "text-destructive",bg: "bg-destructive/12",ring:"ring-destructive/25"},
+  default:  { from: "hsl(var(--primary))", to: "hsl(var(--primary))", text: "text-foreground",    bg: "bg-muted/20",  ring: "ring-border"  },
+  quantum:  { from: "hsl(var(--primary))", to: "hsl(var(--primary))", text: "text-foreground",    bg: "bg-muted/20",  ring: "ring-border"  },
+  success:  { from: "hsl(var(--primary))", to: "hsl(var(--primary))", text: "text-foreground",    bg: "bg-muted/20",  ring: "ring-border"  },
+  warning:  { from: "hsl(var(--primary))", to: "hsl(var(--primary))", text: "text-foreground",    bg: "bg-muted/20",  ring: "ring-border"  },
+  danger:   { from: "hsl(var(--primary))", to: "hsl(var(--primary))", text: "text-foreground",    bg: "bg-muted/20",  ring: "ring-border"  },
 };
 
 export default function StatCard({
@@ -40,7 +40,7 @@ export default function StatCard({
       className="h-full cursor-default"
     >
       <MagicCard 
-        className="rounded-3xl p-5"
+        className="rounded-3xl p-5 bg-white/70 dark:bg-white/5 backdrop-blur-md border border-border/50"
         gradientColor={`${cfg.from.replace(')', ' / 0.15)')}`}
       >
         {/* Top accent bar */}

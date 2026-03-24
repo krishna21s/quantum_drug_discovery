@@ -28,9 +28,9 @@ export default function AnimatedBackground() {
         // Floating orbs in dark blue/teal, matching health dashboard aesthetic
         const orbs = [
             { x: 0.15, y: 0.25, r: 0.38, hue: 207, sat: 100, lit: isDark ? 50 : 60, speed: 0.5, amp: 0.06 },
-            { x: 0.82, y: 0.7,  r: 0.3,  hue: 187, sat: 85,  lit: isDark ? 55 : 45, speed: 0.4, amp: 0.05 },
-            { x: 0.5,  y: 0.5,  r: 0.22, hue: 280, sat: 75,  lit: isDark ? 60 : 70, speed: 0.6, amp: 0.04 },
-            { x: 0.9,  y: 0.1,  r: 0.2,  hue: 350, sat: 85,  lit: isDark ? 62 : 70, speed: 0.7, amp: 0.05 },
+            { x: 0.82, y: 0.7, r: 0.3, hue: 187, sat: 85, lit: isDark ? 55 : 45, speed: 0.4, amp: 0.05 },
+            { x: 0.5, y: 0.5, r: 0.22, hue: 280, sat: 75, lit: isDark ? 60 : 70, speed: 0.6, amp: 0.04 },
+            { x: 0.9, y: 0.1, r: 0.2, hue: 350, sat: 85, lit: isDark ? 62 : 70, speed: 0.7, amp: 0.05 },
         ];
 
         // Tiny star particles
