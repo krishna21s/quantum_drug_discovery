@@ -21,6 +21,15 @@ export interface Candidate {
   tpsa: number | null;
   is_novel: boolean | null;
   scoring_mode: string | null;
+  docking_score: number | null;
+  admet: {
+    absorption: number;
+    distribution: number;
+    metabolism: number;
+    excretion: number;
+    overall: number;
+    verdict: string;
+  } | null;
 }
 
 export interface CandidatesResponse {
@@ -53,6 +62,11 @@ export interface GenerateRequest {
   n_candidates?: number;
   temperature?: number;
   max_mw?: number;
+  stress_factors?: string[];
+  docking_engine?: string;
+  run_admet?: boolean;
+  vqe_optimizer?: string;
+  vqe_max_iterations?: number;
 }
 
 export interface GenerateResponse {
@@ -62,6 +76,10 @@ export interface GenerateResponse {
   n_valid: number;
   temperature: number;
   generation_time_s: number;
+  stress_applied: string[];
+  docking_engine: string;
+  vqe_optimizer: string;
+  vqe_max_iterations: number;
   candidates: Candidate[];
 }
 

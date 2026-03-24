@@ -1,6 +1,6 @@
 import AppLayout from "@/components/AppLayout";
 import { motion, AnimatePresence } from "framer-motion";
-import { Atom, Download, RefreshCw, Loader2, Sparkles, Zap, FileJson, FileSpreadsheet, FileText, BarChart2 } from "lucide-react";
+import { Atom, Download, RefreshCw, Loader2, Sparkles, Zap, FileJson, FileSpreadsheet, FileText, BarChart2, FlaskConical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -16,9 +16,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useState, useEffect, useCallback } from "react";
+import { useLocation, Link } from "react-router-dom";
 import {
   fetchCandidates,
-  generateCandidates,
   type Candidate,
   type CandidatesResponse,
   type GenerateResponse,
@@ -66,6 +66,8 @@ function qedBadge(val: number) {
 }
 
 export default function Molecules() {
+  const location = useLocation();
+
   // Pre-computed candidates
   const [data, setData] = useState<CandidatesResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,16 +76,25 @@ export default function Molecules() {
   const [filter, setFilter] = useState<"all" | "high" | "medium">("all");
 
   // Generate panel state
-  const [showGenerate, setShowGenerate] = useState(false);
-  const [genPdb, setGenPdb] = useState("1M17");
-  const [genCount, setGenCount] = useState(20);
-  const [genTemp, setGenTemp] = useState(1.0);
-  const [generating, setGenerating] = useState(false);
   const [genResult, setGenResult] = useState<GenerateResponse | null>(null);
-  const [genError, setGenError] = useState<string | null>(null);
 
   // Active display: either pre-computed or generated
   const [viewMode, setViewMode] = useState<"precomputed" | "generated">("precomputed");
+
+  // Accept results passed from the Experiment page via router state
+  useEffect(() => {
+    const state = location.state as { genResult?: GenerateResponse; fromExperiment?: boolean } | null;
+    if (state?.fromExperiment && state?.genResult) {
+      setGenResult(state.genResult);
+      setViewMode("generated");
+      if (state.genResult.candidates.length > 0) {
+        setSelected(state.genResult.candidates[0]);
+      }
+      setLoading(false);
+      // Clear the state so refreshing the page doesn't replay
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadCandidates = useCallback(async () => {
     setLoading(true);
@@ -102,28 +113,6 @@ export default function Molecules() {
   }, [selected]);
 
   useEffect(() => { loadCandidates(); }, []);
-
-  const runGeneration = useCallback(async () => {
-    setGenerating(true);
-    setGenError(null);
-    setGenResult(null);
-    try {
-      const res = await generateCandidates({
-        pdb_id: genPdb,
-        n_candidates: genCount,
-        temperature: genTemp,
-      });
-      setGenResult(res);
-      setViewMode("generated");
-      if (res.candidates.length > 0) {
-        setSelected(res.candidates[0]);
-      }
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  }, [genPdb, genCount, genTemp]);
 
   const activeCandidates = viewMode === "generated" && genResult
     ? genResult.candidates
@@ -179,7 +168,7 @@ export default function Molecules() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    const prefix = viewMode === "generated" ? `generated_${genPdb}` : `candidates_${data?.target?.replace(/[^a-zA-Z0-9]/g, "") || "all"}`;
+    const prefix = viewMode === "generated" ? `generated_${genResult?.target || "new"}` : `candidates_${data?.target?.replace(/[^a-zA-Z0-9]/g, "") || "all"}`;
     link.setAttribute("download", `${prefix}.${extension}`);
     document.body.appendChild(link);
     link.click();
@@ -220,6 +209,15 @@ export default function Molecules() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Link to="/experiment">
+              <Button className="rounded-xl gap-1.5 font-semibold" style={{
+                background: "linear-gradient(135deg, hsl(187 85% 45%), hsl(207 100% 50%))",
+                border: "none",
+                boxShadow: "0 4px 16px -4px hsl(207 100% 50% / 0.4)",
+              }}>
+                <FlaskConical className="h-4 w-4" /> New Experiment
+              </Button>
+            </Link>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" className="rounded-xl gap-1.5" disabled={activeCandidates.length === 0}>
@@ -238,20 +236,6 @@ export default function Molecules() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            
-            <Button
-              className="rounded-xl gap-1.5"
-              onClick={() => setShowGenerate(!showGenerate)}
-              style={{
-                background: showGenerate
-                  ? "linear-gradient(135deg, hsl(270 80% 55%), hsl(217 91% 60%))"
-                  : undefined,
-                boxShadow: showGenerate ? "0 8px 24px -4px hsl(270 80% 55% / 0.4)" : undefined,
-              }}
-              variant={showGenerate ? "default" : "outline"}
-            >
-              <Sparkles className="h-4 w-4" /> Generate New
-            </Button>
             {viewMode === "generated" && (
               <Button variant="outline" className="rounded-xl gap-1.5"
                 onClick={() => { setViewMode("precomputed"); if (data?.candidates[0]) setSelected(data.candidates[0]); }}>
@@ -264,126 +248,7 @@ export default function Molecules() {
           </div>
         </div>
 
-        {/* Generate Panel */}
-        <AnimatePresence>
-          {showGenerate && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
-            >
-              <div className="glass-card rounded-3xl p-6 relative overflow-hidden">
-                <div
-                  className="absolute top-0 left-6 right-6 h-[2px] rounded-full"
-                  style={{ background: "linear-gradient(90deg, transparent, hsl(270 80% 65%), transparent)" }}
-                />
-                <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                  <Zap className="h-5 w-5 text-purple-400" /> Generate New Candidates
-                </h2>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                  {/* Target protein */}
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider mb-1 block">Target Protein</label>
-                    <Select value={genPdb} onValueChange={setGenPdb}>
-                      <SelectTrigger className="w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-5 text-sm focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400/30 transition-all">
-                        <SelectValue placeholder="Select target protein" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl bg-background border-white/10">
-                        {PROTEIN_TARGETS.map((t) => (
-                          <SelectItem key={t.pdb} value={t.pdb} className="cursor-pointer focus:bg-purple-500/20">
-                            {t.pdb} — {t.name} ({t.disease})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Number of candidates */}
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">Candidates</label>
-                    <input
-                      type="number"
-                      value={genCount}
-                      onChange={(e) => setGenCount(Math.max(1, Math.min(100, parseInt(e.target.value) || 20)))}
-                      min={1} max={100}
-                      className="mt-1 w-full rounded-xl border border-white/10 bg-muted/20 backdrop-blur-sm px-3 py-2.5 text-sm font-mono focus:border-purple-400 focus:outline-none focus:ring-1 focus:ring-purple-400/30 transition-all"
-                    />
-                  </div>
-
-                  {/* Temperature */}
-                  <div>
-                    <label className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-                      Temperature ({genTemp.toFixed(1)})
-                    </label>
-                    <input
-                      type="range"
-                      min={0.5} max={2.0} step={0.1}
-                      value={genTemp}
-                      onChange={(e) => setGenTemp(parseFloat(e.target.value))}
-                      className="mt-3 w-full accent-purple-400"
-                    />
-                    <div className="flex justify-between text-[10px] text-muted-foreground">
-                      <span>Conservative</span>
-                      <span>Creative</span>
-                    </div>
-                  </div>
-
-                  {/* Generate button */}
-                  <div className="flex items-end">
-                    <Button
-                      onClick={runGeneration}
-                      disabled={generating}
-                      className="w-full rounded-xl font-semibold h-11"
-                      style={{
-                        background: "linear-gradient(135deg, hsl(270 80% 55%), hsl(217 91% 60%))",
-                        boxShadow: "0 8px 24px -4px hsl(270 80% 55% / 0.4)",
-                        border: "none",
-                        opacity: generating ? 0.5 : 1,
-                      }}
-                    >
-                      {generating ? (
-                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating…</>
-                      ) : (
-                        <><Sparkles className="h-4 w-4 mr-2" />Generate</>
-                      )}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Generation error */}
-                {genError && (
-                  <div className="rounded-xl bg-destructive/10 ring-1 ring-destructive/30 px-4 py-2 text-sm text-destructive">
-                    {genError}
-                  </div>
-                )}
-
-                {/* Generation result stats */}
-                {genResult && (
-                  <motion.div initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-                    className="flex gap-4 flex-wrap text-xs mt-2">
-                    <span className="glass-surface px-3 py-1.5 rounded-lg">
-                      Target: <strong className="text-quantum">{genResult.target}</strong>
-                    </span>
-                    <span className="glass-surface px-3 py-1.5 rounded-lg">
-                      Sampled: <strong>{genResult.n_sampled}</strong>
-                    </span>
-                    <span className="glass-surface px-3 py-1.5 rounded-lg">
-                      Valid: <strong className="text-success">{genResult.n_valid}</strong>
-                    </span>
-                    <span className="glass-surface px-3 py-1.5 rounded-lg">
-                      Time: <strong>{genResult.generation_time_s}s</strong>
-                    </span>
-                    <span className="glass-surface px-3 py-1.5 rounded-lg">
-                      Temp: <strong>{genResult.temperature}</strong>
-                    </span>
-                  </motion.div>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         {/* Error */}
         {error && !genResult && (
@@ -536,7 +401,49 @@ export default function Molecules() {
                         <span className="text-muted-foreground">Novel</span>
                         <span>{selected.is_novel ? "✓ Yes" : selected.is_novel === false ? "✗ No" : "—"}</span>
                       </div>
+                      {selected.docking_score != null && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Docking Score</span>
+                          <span className={cn("font-mono font-semibold", selected.docking_score <= -8 ? "text-success" : selected.docking_score <= -6 ? "text-quantum" : "text-warning")}>
+                            {selected.docking_score.toFixed(2)} kcal/mol
+                          </span>
+                        </div>
+                      )}
                     </div>
+
+                    {/* ADMET Panel */}
+                    {selected.admet && (
+                      <div className="bg-muted/10 rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold">ADMET Profile</span>
+                          <span className={cn(
+                            "text-xs font-semibold px-2 py-0.5 rounded-full ring-1",
+                            selected.admet.verdict === "Promising" ? "bg-success/10 text-success ring-success/30" :
+                            selected.admet.verdict === "Acceptable" ? "bg-warning/10 text-warning ring-warning/30" :
+                            "bg-destructive/10 text-destructive ring-destructive/30"
+                          )}>
+                            {selected.admet.verdict}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          {[
+                            { label: "Absorption", val: selected.admet.absorption },
+                            { label: "Distribution", val: selected.admet.distribution },
+                            { label: "Metabolism", val: selected.admet.metabolism },
+                            { label: "Excretion", val: selected.admet.excretion },
+                          ].map((prop) => (
+                            <div key={prop.label} className="flex justify-between">
+                              <span className="text-muted-foreground">{prop.label}</span>
+                              <span className="font-mono">{(prop.val * 100).toFixed(0)}%</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="flex justify-between text-xs pt-1 border-t border-border/50">
+                          <span className="font-semibold">Overall Safety</span>
+                          <span className="font-mono font-semibold">{(selected.admet.overall * 100).toFixed(0)}%</span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* pIC50 interpretation */}
                     {selected.xgb_pic50 != null && (

@@ -39,7 +39,7 @@ const statusConfig = {
 const quickActions = [
   { label: "New Experiment", icon: FlaskConical, href: "/experiment" },
   { label: "Quantum Lab", icon: Zap, href: "/quantum" },
-  { label: "3D Viewer", icon: Atom, href: "/visualization" },
+  { label: "Molecules", icon: Atom, href: "/molecules" },
   { label: "ADMET Screen", icon: Activity, href: "/admet" },
 ];
 
@@ -215,7 +215,7 @@ export default function Dashboard() {
               <h2 className="font-semibold text-base">Recent Experiments</h2>
               <p className="text-xs text-muted-foreground mt-0.5">Latest drug discovery runs</p>
             </div>
-            <Link to="/results" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+            <Link to="/molecules" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               View all <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

@@ -27,3 +27,7 @@ sqlalchemy>=2.0
 
 # ADMET Prediction
 admet-ai
+
+# LLM Auto-Configure
+groq>=0.4
+python-dotenv>=1.0

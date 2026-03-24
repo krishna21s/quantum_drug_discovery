@@ -11,6 +11,16 @@ from typing import Optional
 
 # ── Candidate Models ────────────────────────────────────────
 
+class ADMETScores(BaseModel):
+    """ADMET prediction scores for a candidate."""
+    absorption: float = 0.0
+    distribution: float = 0.0
+    metabolism: float = 0.0
+    excretion: float = 0.0
+    overall: float = 0.0
+    verdict: str = "Unknown"
+
+
 class CandidateItem(BaseModel):
     """Single drug candidate from RL fine-tuning."""
     rank: int
@@ -25,6 +35,8 @@ class CandidateItem(BaseModel):
     tpsa: Optional[float] = Field(default=None, description="Topological Polar Surface Area")
     is_novel: Optional[bool] = Field(default=None, description="Not found in training set")
     scoring_mode: Optional[str] = Field(default=None, description="QSVR scoring mode used")
+    docking_score: Optional[float] = Field(default=None, description="Estimated docking score (kcal/mol)")
+    admet: Optional[ADMETScores] = Field(default=None, description="ADMET prediction scores")
 
 
 class CandidatesListResponse(BaseModel):
@@ -102,6 +114,28 @@ class GenerateRequest(BaseModel):
         default=600.0,
         description="Maximum molecular weight filter (Da)",
     )
+    stress_factors: list[str] = Field(
+        default=[],
+        description="Stress modifiers to apply: 'mutation', 'folding', 'thermal', 'binding'",
+    )
+    docking_engine: str = Field(
+        default="autodock_vina",
+        description="Docking engine: 'autodock_vina', 'gnina', 'none'",
+    )
+    run_admet: bool = Field(
+        default=True,
+        description="Run ADMET predictions on generated candidates",
+    )
+    vqe_optimizer: str = Field(
+        default="COBYLA",
+        description="VQE optimizer: COBYLA, SPSA, L-BFGS-B",
+    )
+    vqe_max_iterations: int = Field(
+        default=100,
+        ge=10,
+        le=1000,
+        description="Max VQE iterations",
+    )
 
 
 class GenerateResponse(BaseModel):
@@ -112,4 +146,8 @@ class GenerateResponse(BaseModel):
     n_valid: int
     temperature: float
     generation_time_s: float
+    stress_applied: list[str] = Field(default=[], description="Stress factors that were applied")
+    docking_engine: str = Field(default="none", description="Docking engine used")
+    vqe_optimizer: str = Field(default="COBYLA", description="VQE optimizer used")
+    vqe_max_iterations: int = Field(default=100, description="Max VQE iterations")
     candidates: list[CandidateItem]
