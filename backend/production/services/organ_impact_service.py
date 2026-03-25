@@ -114,7 +114,7 @@ PHARMACOPHORE_RULES = [
         ],
     },
     {
-        "smarts": "c1cnc2ccccc2n1",  # Quinazoline scaffold (erlotinib, gefitinib, lapatinib)
+        "smarts": "c1ncnc2ccccc12",  # Quinazoline scaffold (erlotinib, gefitinib, lapatinib)
         "class": "Quinazoline EGFR Kinase Inhibitor",
         "mechanism": "ATP-competitive EGFR tyrosine kinase inhibition — blocks ErbB receptor autophosphorylation",
         "targets": [
