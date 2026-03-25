@@ -50,6 +50,7 @@ from .vqc_routes import router as vqc_router
 from .organ_impact_routes import router as organ_impact_router
 from .dashboard_routes import router as dashboard_router
 from .similarity_routes import router as similarity_router
+from .image_routes import router as image_router
 from .pipeline_loader import load_pipeline
 
 # Database Imports
@@ -188,6 +189,7 @@ app.include_router(vqc_router)
 app.include_router(organ_impact_router)
 app.include_router(dashboard_router)
 app.include_router(similarity_router)
+app.include_router(image_router)
 
 
 # ── Root ────────────────────────────────────────────────────

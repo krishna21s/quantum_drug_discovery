@@ -378,6 +378,18 @@ export default function Molecules() {
                       </Button>
                     </div>
 
+                    <div className="bg-white dark:bg-white/5 rounded-2xl p-2 flex justify-center items-center border border-border overflow-hidden relative group">
+                      <img 
+                        src={`/api/image/render?smiles=${encodeURIComponent(selected.smiles)}`}
+                        alt={`2D structure of ${selected.smiles}`}
+                        className="w-full object-contain rounded-xl dark:invert transition-transform duration-300 group-hover:scale-105"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).parentElement!.innerHTML = '<div class="p-6 text-center text-xs text-muted-foreground">Unable to render 2D structure</div>';
+                        }}
+                      />
+                    </div>
+
                     <div className="bg-muted/20 rounded-xl p-3">
                       <p className="font-mono text-xs break-all leading-relaxed">{selected.smiles}</p>
                     </div>
