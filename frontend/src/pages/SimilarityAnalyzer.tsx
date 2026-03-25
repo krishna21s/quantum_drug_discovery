@@ -3,590 +3,100 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useCallback } from "react";
 import {
   Search, Loader2, Sparkles, AlertTriangle, FlaskConical,
-  CheckCircle2, Zap, Info, TrendingUp, Shield,
+  CheckCircle2, Zap, Info, TrendingUp, Shield, Dna,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Pharmacophore / Structural Pattern Engine (pure JS, no backend)
-   Each disease entry defines weighted feature patterns detected on a SMILES
-   string. Score = Σ(matched_weight) / Σ(total_weight) → displayed as 0–100%.
-   Only diseases scoring ≥ 50 are user-visible.
+   Types mirroring backend response
 ────────────────────────────────────────────────────────────────────────────── */
 
-type MatchLevel = "CONFIRMED" | "HIGH" | "MODERATE";
-
-interface Feature {
-  label: string;         // Human-readable feature name
-  test: (s: string) => boolean;  // Detector on raw SMILES
-  weight: number;        // Contribution to total score
-  description: string;   // What this feature does clinically
+interface MolecularProfile {
+  molecular_weight: number;
+  logp: number;
+  tpsa: number;
+  hba: number;
+  hbd: number;
+  rotatable_bonds: number;
+  num_rings: number;
+  formula: string;
 }
 
-interface Disease {
-  id: string;
+interface DrugMatch {
   name: string;
-  category: "Viral" | "Bacterial" | "Fungal" | "Oncology" | "CNS" | "Metabolic" | "Cardiovascular" | "Inflammatory";
-  description: string;
-  icon: string;
-  color: string;
-  gradientFrom: string;
-  gradientTo: string;
-  features: Feature[];
-  approvedAnalogues: string[];
-  clinicalNote: string;
+  similarity: number;
+  indication: string;
+  category: string;
+  target_protein: string;
+  mechanism: string;
 }
 
-const DISEASES: Disease[] = [
-  // ── Viral ──────────────────────────────────────────────────────────────────
-  {
-    id: "covid19",
-    name: "COVID-19 (SARS-CoV-2)",
-    category: "Viral",
-    description: "Respiratory illness caused by SARS-CoV-2. Main drug targets: RNA-dependent RNA polymerase (RdRp), main protease (Mpro), and spike protein.",
-    icon: "🦠",
-    color: "#38bdf8",
-    gradientFrom: "from-sky-500/20",
-    gradientTo: "to-cyan-500/10",
-    features: [
-      {
-        label: "Nucleoside/Nucleotide scaffold",
-        test: (s) => /[CN]1[Cc][Cc]([Cc][Cc]1)[Nn]/i.test(s) || /n1cc[cn]c1|N1C=CN=C1/i.test(s) || /nc(=O)n|nc(n)/i.test(s),
-        weight: 30,
-        description: "Mimics viral RNA building blocks to inhibit RdRp",
-      },
-      {
-        label: "Phosphonate or phosphoramidate",
-        test: (s) => /P\(=O\)|OP\(|NP\(/i.test(s),
-        weight: 25,
-        description: "Prodrug moiety enabling intracellular conversion to active triphosphate",
-      },
-      {
-        label: "Heterocyclic core (pyrimidine/purine)",
-        test: (s) => /c1ncnc|c1ccnc|C1=NC|n1ccnc/i.test(s) || /c1nc2|n1cn/i.test(s),
-        weight: 20,
-        description: "Core scaffold of nucleobase analogues targeting viral polymerase",
-      },
-      {
-        label: "Hydroxyl on sugar ring",
-        test: (s) => /\[C@@H\]\(O\)|\[C@H\]\(O\)|CO[C@@H]/i.test(s),
-        weight: 15,
-        description: "Ribose/deoxyribose hydroxyl groups critical for polymerase binding",
-      },
-      {
-        label: "Amide / nitrile pharmacophore",
-        test: (s) => /C#N|C\(=O\)N/i.test(s),
-        weight: 10,
-        description: "Electrophilic warhead for covalent Mpro inhibition",
-      },
-    ],
-    approvedAnalogues: ["Remdesivir (GS-5734)", "Molnupiravir (EIDD-2801)", "Nirmatrelvir"],
-    clinicalNote: "Approved by FDA for moderate-to-severe COVID-19. RdRp inhibitors are first-line antivirals.",
-  },
-  {
-    id: "influenza",
-    name: "Influenza (Flu)",
-    category: "Viral",
-    description: "Respiratory infection by Influenza A/B viruses. Key target: neuraminidase (NA) surface glycoprotein essential for viral release.",
-    icon: "🌡️",
-    color: "#a78bfa",
-    gradientFrom: "from-violet-500/20",
-    gradientTo: "to-purple-500/10",
-    features: [
-      {
-        label: "Carboxylate group (–COOH / –COO⁻)",
-        test: (s) => /C\(=O\)O|C\(O\)=O/i.test(s),
-        weight: 30,
-        description: "Interacts with Arg118/Arg292/Arg371 in the neuraminidase active site",
-      },
-      {
-        label: "Cyclohexene / cyclohexane ring",
-        test: (s) => /C1CC=CC|C1=CCC|C1CCCCC1/i.test(s),
-        weight: 25,
-        description: "Core scaffold of oseltamivir-class neuraminidase inhibitors",
-      },
-      {
-        label: "Acetamido group (–NHC(=O)CH₃)",
-        test: (s) => /NC\(=O\)C|NC\(C\)=O/i.test(s),
-        weight: 20,
-        description: "Mimics the N-acetyl group of sialic acid substrate",
-      },
-      {
-        label: "Guanidinium group",
-        test: (s) => /NC\(=N\)N|N=C\(N\)N/i.test(s),
-        weight: 15,
-        description: "Electrostatic interaction with Glu119 in zanamivir-class inhibitors",
-      },
-      {
-        label: "Alkyl ether side chain",
-        test: (s) => /COCCC|OCCC|OCC/i.test(s),
-        weight: 10,
-        description: "Hydrophobic pocket occupancy (150-cavity) of influenza NA",
-      },
-    ],
-    approvedAnalogues: ["Oseltamivir (Tamiflu)", "Zanamivir (Relenza)", "Baloxavir marboxil"],
-    clinicalNote: "Neuraminidase inhibitors reduce flu duration by 1–3 days and prevent complications.",
-  },
-  {
-    id: "hiv",
-    name: "HIV / AIDS",
-    category: "Viral",
-    description: "Retroviral infection targeting CD4⁺ T-cells. Drug targets: HIV protease, reverse transcriptase (RT), integrase.",
-    icon: "🔴",
-    color: "#fb7185",
-    gradientFrom: "from-rose-500/20",
-    gradientTo: "to-red-500/10",
-    features: [
-      {
-        label: "Peptidomimetic scaffold",
-        test: (s) => /NC\(=O\)[C@@H]|NC\(=O\)[C@H]|\[C@@H\]\(O\)CN|C\(=O\)N[C@@H]/i.test(s),
-        weight: 30,
-        description: "Mimics the Phe-Pro cleavage site of HIV Gag polyprotein",
-      },
-      {
-        label: "Hydroxyl ketone / hydroxyethylamine",
-        test: (s) => /C\(=O\)CC\(O\)|CC\(O\)CN|\[C@@H\]\(O\)/i.test(s),
-        weight: 25,
-        description: "Transition-state isostere binding to HIV protease catalytic Asp dyad",
-      },
-      {
-        label: "Aromatic sulfonamide",
-        test: (s) => /NS\(=O\)\(=O\)c|c.*S\(=O\)\(=O\)N/i.test(s),
-        weight: 20,
-        description: "P2 substituent enhancing potency and bioavailability",
-      },
-      {
-        label: "Piperazine / morpholine ring",
-        test: (s) => /N1CCNCC1|N1CCOCC1/i.test(s),
-        weight: 15,
-        description: "CYP3A4 interaction motif for pharmacokinetic boosting",
-      },
-      {
-        label: "Di-halogenated arene",
-        test: (s) => /c.*F.*Cl|c.*Cl.*F|c1cc\(F\).*\(Cl\)/i.test(s),
-        weight: 10,
-        description: "Hydrophobic contacts in integrase/NNRTI binding pocket",
-      },
-    ],
-    approvedAnalogues: ["Lopinavir/Ritonavir", "Atazanavir", "Darunavir"],
-    clinicalNote: "Modern ART combinations suppress viral load to undetectable. Protease inhibitors are backbone of many regimens.",
-  },
-  {
-    id: "herpes",
-    name: "Herpes Simplex Virus (HSV)",
-    category: "Viral",
-    description: "HSV-1/HSV-2 infections. Key target: viral thymidine kinase (TK) phosphorylates nucleoside analogs to their active triphosphate inhibitors.",
-    icon: "⚡",
-    color: "#34d399",
-    gradientFrom: "from-emerald-500/20",
-    gradientTo: "to-green-500/10",
-    features: [
-      {
-        label: "Acyclic nucleoside framework",
-        test: (s) => /NCOCCO|OCCOCCO|NCCO[Cc]/i.test(s),
-        weight: 35,
-        description: "Acyclic side chain mimics ribose; phosphorylated by HSV-TK selectively",
-      },
-      {
-        label: "Guanine / hypoxanthine base",
-        test: (s) => /Nc1nc2c\(ncn2\)c\(=O\)|c1nc2nc\(N\)nc\(=O\)c2n/i.test(s) || /Nc1nc.*nc\(=O\)/i.test(s),
-        weight: 30,
-        description: "Purine scaffold recognized by viral TK with high selectivity",
-      },
-      {
-        label: "NH-lactam moiety",
-        test: (s) => /\[nH\]|N1C=|c1\[nH\]/i.test(s),
-        weight: 20,
-        description: "N-H donor required for recognition by viral thymidine kinase",
-      },
-      {
-        label: "Ether oxygen linkage",
-        test: (s) => /COC|OCO|NCOC/i.test(s),
-        weight: 15,
-        description: "Acyclic ribose mimic flexibility for TK binding",
-      },
-    ],
-    approvedAnalogues: ["Acyclovir (Zovirax)", "Valacyclovir", "Famciclovir"],
-    clinicalNote: "Nucleoside analogs activated by viral TK enable selective virus killing over host cells.",
-  },
-  // ── Bacterial ──────────────────────────────────────────────────────────────
-  {
-    id: "bacterial_broad",
-    name: "Broad-Spectrum Bacterial Infections",
-    category: "Bacterial",
-    description: "Coverage of Gram-positive & Gram-negative pathogens. Key targets: cell wall synthesis (beta-lactam), DNA gyrase (fluoroquinolones), ribosome (macrolides).",
-    icon: "🧫",
-    color: "#fbbf24",
-    gradientFrom: "from-amber-500/20",
-    gradientTo: "to-yellow-500/10",
-    features: [
-      {
-        label: "Beta-lactam ring",
-        test: (s) => /C1CNC1=O|C1CN\(C1=O\)|[SC]1CCN.*C1/i.test(s) || /N1CC(=O)|N1C.*C(=O)/i.test(s),
-        weight: 35,
-        description: "Mechanism-based inhibitor of penicillin-binding proteins (PBPs)",
-      },
-      {
-        label: "Fluoroquinolone scaffold",
-        test: (s) => /c\(F\)cc.*n.*c.*=O|O=C.*n1c.*c\(F\)/i.test(s) || /c(F)c.*N.*CC.*C(=O)O/i.test(s),
-        weight: 30,
-        description: "Dual inhibitor of DNA gyrase and topoisomerase IV",
-      },
-      {
-        label: "Carboxylic acid + N-heterocycle",
-        test: (s) => /C\(=O\)O.*n|n.*C\(=O\)O/i.test(s),
-        weight: 20,
-        description: "Pharmacophore essential for gyrase chelation",
-      },
-      {
-        label: "Cyclopropyl amine",
-        test: (s) => /N.*C1CC1|c1.*n.*C2CC2/i.test(s),
-        weight: 15,
-        description: "N1-cyclopropyl group for fluoroquinolone selectivity",
-      },
-    ],
-    approvedAnalogues: ["Ciprofloxacin", "Amoxicillin", "Azithromycin"],
-    clinicalNote: "Combination strategies recommended to reduce resistance. Beta-lactam + inhibitor pairs are first-line for many hospital-acquired infections.",
-  },
-  // ── Fungal ─────────────────────────────────────────────────────────────────
-  {
-    id: "fungal",
-    name: "Invasive Fungal Infections",
-    category: "Fungal",
-    description: "Candida, Aspergillus, and Cryptococcus infections. Key target: lanosterol 14α-demethylase (CYP51A1) — disrupts fungal ergosterol biosynthesis.",
-    icon: "🍄",
-    color: "#c084fc",
-    gradientFrom: "from-purple-500/20",
-    gradientTo: "to-fuchsia-500/10",
-    features: [
-      {
-        label: "1,2,4-Triazole ring",
-        test: (s) => /c1ncnn1|n1ncn.|n1cc[nH]/i.test(s) || /Cn1cc|Cn1cn/i.test(s),
-        weight: 40,
-        description: "Azole nitrogen coordinates with heme iron in fungal CYP51",
-      },
-      {
-        label: "Fluorinated phenyl ring",
-        test: (s) => /c1ccc\(F\)cc1|c.*\(F\).*c\(F\)/i.test(s),
-        weight: 30,
-        description: "Heme-loop hydrophobic contact critical for potency",
-      },
-      {
-        label: "Tertiary alcohol",
-        test: (s) => /C\(O\)\(C[Cc]\)|\(O\)\([Cc][Cc]\)/i.test(s),
-        weight: 20,
-        description: "Hydrogen bond donor in the CYP51 substrate channel",
-      },
-      {
-        label: "Bis-triazole / imidazole arrangement",
-        test: (s) => /n1cnc.*Cn|Cn1cc.*Cn/i.test(s),
-        weight: 10,
-        description: "Dual azole motif signature of fluconazole-class drugs",
-      },
-    ],
-    approvedAnalogues: ["Fluconazole", "Itraconazole", "Voriconazole"],
-    clinicalNote: "Azoles are first-line for most invasive fungal infections. Resistance surveillance is critical in immunocompromised patients.",
-  },
-  // ── Oncology ───────────────────────────────────────────────────────────────
-  {
-    id: "kinase_cancer",
-    name: "Tyrosine-Kinase–Driven Cancers",
-    category: "Oncology",
-    description: "Cancers driven by mutant/overexpressed kinases (CML, NSCLC, HER2+ breast cancer). Target: ATP-competitive kinase inhibition.",
-    icon: "🎗️",
-    color: "#f87171",
-    gradientFrom: "from-red-500/20",
-    gradientTo: "to-orange-500/10",
-    features: [
-      {
-        label: "ATP-mimetic hinge-binding pharmacophore",
-        test: (s) => /Nc1nc|Nc1cc.*nc|c.*NC.*c.*n/i.test(s),
-        weight: 35,
-        description: "H-bond donor-acceptor pair mimicking adenine N1/N6 of ATP",
-      },
-      {
-        label: "Piperazine / piperidine solubiliser",
-        test: (s) => /N1CCNCC1|N1CCCCC1/i.test(s),
-        weight: 25,
-        description: "Basic nitrogen improves aqueous solubility and cell permeability",
-      },
-      {
-        label: "Pyridine / pyrimidine diamine scaffold",
-        test: (s) => /Nc1ncnc|Nc1ccnc|Nc.*nc.*N/i.test(s),
-        weight: 25,
-        description: "Critical DFG-in binding motif of Type I kinase inhibitors",
-      },
-      {
-        label: "Amide linker",
-        test: (s) => /C\(=O\)Nc|cNC\(=O\)/i.test(s),
-        weight: 15,
-        description: "Connects pharmacophore units and H-bonds gatekeeper residue",
-      },
-    ],
-    approvedAnalogues: ["Imatinib (Gleevec)", "Erlotinib", "Lapatinib", "Osimertinib"],
-    clinicalNote: "Targeted kinase inhibitors have revolutionised oncology with response rates exceeding 80% in biomarker-selected populations.",
-  },
-  {
-    id: "topo_cancer",
-    name: "Hematologic Malignancies",
-    category: "Oncology",
-    description: "Leukaemia, lymphoma, and multiple myeloma. Targets include DNA topoisomerase I/II, anthracycline intercalation, and alkylation.",
-    icon: "🩸",
-    color: "#f43f5e",
-    gradientFrom: "from-rose-600/20",
-    gradientTo: "to-red-600/10",
-    features: [
-      {
-        label: "Polycyclic aromatic / anthracene core",
-        test: (s) => /c1ccc2cc3|c1cccc2c1|c1ccc2ccc3/i.test(s),
-        weight: 40,
-        description: "Intercalation into DNA minor groove stacking between base pairs",
-      },
-      {
-        label: "Quinone moiety (C=O adjacent arene)",
-        test: (s) => /C\(=O\)c1c.*C\(=O\)|c1cc\(=O\)c/i.test(s),
-        weight: 30,
-        description: "Redox cycling generates ROS and adducts with topoisomerase II",
-      },
-      {
-        label: "Glycosyl amino sugar",
-        test: (s) => /\[C@@H\]\(N\)|O[C@@H].*N|\[NH\d\]/i.test(s),
-        weight: 20,
-        description: "Amino sugar of anthracyclines provides electrostatic contacts with DNA phosphate backbone",
-      },
-      {
-        label: "Multiple hydroxyl groups",
-        test: (s) => (s.match(/\(O\)/g) || []).length >= 3,
-        weight: 10,
-        description: "Hydroxyl groups chelate metal ions and H-bond topoisomerase residues",
-      },
-    ],
-    approvedAnalogues: ["Doxorubicin", "Epirubicin", "Daunorubicin", "Mitoxantrone"],
-    clinicalNote: "Anthracycline-based regimens remain cornerstone of AML and aggressive lymphoma treatment despite cardiotoxicity risk.",
-  },
-  // ── CNS ────────────────────────────────────────────────────────────────────
-  {
-    id: "depression",
-    name: "Major Depression & Anxiety",
-    category: "CNS",
-    description: "Mood disorders involving serotonin/norepinephrine dysregulation. Target: serotonin reuptake transporter (SERT) blockade.",
-    icon: "🧠",
-    color: "#818cf8",
-    gradientFrom: "from-indigo-500/20",
-    gradientTo: "to-blue-500/10",
-    features: [
-      {
-        label: "Tricyclic / bicyclic arene scaffold",
-        test: (s) => /C1CC2=CC=CC=C2[CH]1|c1ccc2c\(c1\)|c1cccc2cccc/i.test(s),
-        weight: 30,
-        description: "Aromatic core for hydrophobic occupancy of SERT transmembrane vestibule",
-      },
-      {
-        label: "Basic amine (pKa ~9–10)",
-        test: (s) => /CN\(C\)CC|CCNCC|CCN\(C/i.test(s) || /N[Cc][Cc]|[Cc]N[Cc]/i.test(s),
-        weight: 30,
-        description: "Ionisable amine forms salt bridge with Asp98 in SERT binding site",
-      },
-      {
-        label: "Halogenated aryl ring",
-        test: (s) => /c1cc\(Cl\)|c1cc\(F\)|c.*Br.*c|c.*F.*cc/i.test(s),
-        weight: 25,
-        description: "Halogen occupies selectivity-determining S1 pocket in SERT",
-      },
-      {
-        label: "Ether linkage to arene",
-        test: (s) => /Oc1ccc|c1.*Oc|OCc1c/i.test(s),
-        weight: 15,
-        description: "O-aryl linkage present in fluoxetine, citalopram pharmacophore",
-      },
-    ],
-    approvedAnalogues: ["Sertraline (Zoloft)", "Fluoxetine (Prozac)", "Escitalopram", "Venlafaxine"],
-    clinicalNote: "SSRIs/SNRIs are first-line for MDD with 60–70% response. Side-effect profile strongly influences choice.",
-  },
-  // ── Metabolic ──────────────────────────────────────────────────────────────
-  {
-    id: "diabetes",
-    name: "Type 2 Diabetes Mellitus",
-    category: "Metabolic",
-    description: "Insulin resistance and β-cell dysfunction. Targets: AMPK activation (biguanides), DPP-4 inhibition (gliptins), SGLT2 (gliflozins).",
-    icon: "💉",
-    color: "#4ade80",
-    gradientFrom: "from-green-500/20",
-    gradientTo: "to-emerald-500/10",
-    features: [
-      {
-        label: "Biguanide pharmacophore",
-        test: (s) => /NC\(=N\)NC\(=N\)N|N=C\(N\)NC\(=N\)N/i.test(s),
-        weight: 40,
-        description: "Metformin class — inhibits mitochondrial complex I to activate AMPK",
-      },
-      {
-        label: "Glucopyranoside / C-glycoside",
-        test: (s) => /O[C@@H]1CO[C@H]|O[C@H]1CO[C@@H]|Oc1ccc.*CO/i.test(s),
-        weight: 35,
-        description: "SGLT2 gliflozin scaffold — blocks renal glucose reabsorption",
-      },
-      {
-        label: "Fluorinated phenyl + nitrile",
-        test: (s) => /c\(F\).*C#N|C#N.*c\(F\)/i.test(s),
-        weight: 15,
-        description: "DPP-4 gliptin pharmacophore targeting S1/S2 subsites",
-      },
-      {
-        label: "Aromatic sulfonyl-urea",
-        test: (s) => /NS\(=O\)\(=O\)c.*NC\(=O\)N|c.*S\(=O\)\(=O\)NC/i.test(s),
-        weight: 10,
-        description: "Sulfonylurea class — closes K-ATP channels to stimulate insulin release",
-      },
-    ],
-    approvedAnalogues: ["Metformin", "Empagliflozin", "Sitagliptin (Januvia)", "Glipizide"],
-    clinicalNote: "First-line: Metformin + lifestyle. SGLT2i and GLP-1 agonists added for CV/renal benefit.",
-  },
-  // ── Cardiovascular ─────────────────────────────────────────────────────────
-  {
-    id: "cardiovascular",
-    name: "Cardiovascular Disease (Hyperlipidaemia)",
-    category: "Cardiovascular",
-    description: "Dyslipidaemia and atherosclerosis. Target: HMG-CoA reductase inhibition reduces LDL cholesterol 40–60%.",
-    icon: "❤️",
-    color: "#fb923c",
-    gradientFrom: "from-orange-500/20",
-    gradientTo: "to-red-500/10",
-    features: [
-      {
-        label: "3,5-Dihydroxy heptanoic acid chain",
-        test: (s) => /CC\(O\)CC\(O\)CC\(=O\)O|C\(O\)CC\(O\)C/i.test(s),
-        weight: 40,
-        description: "Mevalonate isostere that competitively inhibits HMG-CoA reductase",
-      },
-      {
-        label: "Fluorinated arene",
-        test: (s) => /c1ccc\(F\)cc1|c1cc\(F\)ccc1/i.test(s),
-        weight: 25,
-        description: "Para-fluorophenyl substructure of atorvastatin/rosuvastatin class",
-      },
-      {
-        label: "Isopropyl / tert-butyl group",
-        test: (s) => /CC\(C\)c|c.*C\(C\)C|CC\(C\)|c1.*CC\(C\)C/i.test(s),
-        weight: 20,
-        description: "Hydrophobic contact in HMG-CoA reductase amphipathic helix",
-      },
-      {
-        label: "Pyrrole / pyrimidine scaffold",
-        test: (s) => /c1cc\[nH\]c1|c1ccnc.*c1|n1ccc/i.test(s),
-        weight: 15,
-        description: "Bicyclic ring system of synthetic statins (atorvastatin, rosuvastatin)",
-      },
-    ],
-    approvedAnalogues: ["Atorvastatin (Lipitor)", "Rosuvastatin (Crestor)", "Simvastatin"],
-    clinicalNote: "Statins reduce major cardiovascular events by 25–35%. High-intensity therapy recommended for secondary prevention.",
-  },
-  // ── Inflammatory ────────────────────────────────────────────────────────────
-  {
-    id: "rheumatoid",
-    name: "Rheumatoid Arthritis / Autoimmune",
-    category: "Inflammatory",
-    description: "Chronic inflammatory joint disease. Targets: COX-2 inhibition (NSAIDs), DMARD immunomodulation, anti-TNF-α biologics.",
-    icon: "🦴",
-    color: "#f0abfc",
-    gradientFrom: "from-fuchsia-500/20",
-    gradientTo: "to-pink-500/10",
-    features: [
-      {
-        label: "Carboxylic acid + aromatic ring (NSAID pattern)",
-        test: (s) => /C\(=O\)O.*c|cC\(=O\)O|c.*CC\(=O\)O/i.test(s),
-        weight: 35,
-        description: "Pharmacophore for COX-1/COX-2 inhibition — carboxylate chelates active-site Arg120",
-      },
-      {
-        label: "Sulfonamide / sulfone",
-        test: (s) => /NS\(=O\)\(=O\)|S\(=O\)\(=O\)N/i.test(s),
-        weight: 25,
-        description: "Selective COX-2 pharmacophore (coxib class — fits COX-2 side pocket)",
-      },
-      {
-        label: "Acetamide / aniline",
-        test: (s) => /NC\(=O\)c|cNC\(=O\)/i.test(s),
-        weight: 25,
-        description: "Amide linker for DMARD immunomodulators (methotrexate, leflunomide)",
-      },
-      {
-        label: "Chlorine on aromatic ring",
-        test: (s) => /c.*Cl|Clc/i.test(s),
-        weight: 15,
-        description: "Halogen occupancy of hydrophobic sub-pocket in COX/JAK binding sites",
-      },
-    ],
-    approvedAnalogues: ["Ibuprofen", "Celecoxib (Celebrex)", "Methotrexate", "Hydroxychloroquine"],
-    clinicalNote: "Combination DMARD therapy (methotrexate + biologic) achieves remission in ~50% of RA patients.",
-  },
-];
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Scoring Engine
-────────────────────────────────────────────────────────────────────────────── */
-interface ScoredDisease {
-  disease: Disease;
-  score: number;              // 0–100
-  level: MatchLevel;
-  matchedFeatures: { label: string; description: string }[];
-  missedFeatures: string[];
+interface DiseaseResult {
+  indication: string;
+  category: string;
+  max_similarity: number;
+  avg_similarity: number;
+  match_level: "CONFIRMED" | "HIGH" | "MODERATE";
+  matched_drugs: DrugMatch[];
+  top_target: string;
+  top_mechanism: string;
 }
 
-function analyzeSmiles(smiles: string): ScoredDisease[] {
-  const s = smiles.trim();
-  const results: ScoredDisease[] = [];
-
-  for (const disease of DISEASES) {
-    const totalWeight = disease.features.reduce((sum, f) => sum + f.weight, 0);
-    let earnedWeight = 0;
-    const matched: { label: string; description: string }[] = [];
-    const missed: string[] = [];
-
-    for (const feature of disease.features) {
-      if (feature.test(s)) {
-        earnedWeight += feature.weight;
-        matched.push({ label: feature.label, description: feature.description });
-      } else {
-        missed.push(feature.label);
-      }
-    }
-
-    const score = Math.round((earnedWeight / totalWeight) * 100);
-
-    // Threshold: only include if ≥ 40%
-    if (score >= 40) {
-      const level: MatchLevel =
-        score >= 75 ? "CONFIRMED" :
-        score >= 60 ? "HIGH" : "MODERATE";
-      results.push({ disease, score, level, matchedFeatures: matched, missedFeatures: missed });
-    }
-  }
-
-  return results.sort((a, b) => b.score - a.score);
+interface SimilarityResponse {
+  query_smiles: string;
+  canonical_smiles: string;
+  molecular_profile: MolecularProfile;
+  diseases: DiseaseResult[];
+  total_diseases_found: number;
+  total_drugs_matched: number;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Sub-components
+   Constants & UI helpers
 ────────────────────────────────────────────────────────────────────────────── */
 
-const LEVEL_META: Record<MatchLevel, { label: string; bg: string; dot: string }> = {
+const LEVEL_META: Record<string, { label: string; bg: string; dot: string }> = {
   CONFIRMED: { label: "CONFIRMED MATCH", bg: "bg-emerald-500/15 text-emerald-400 ring-emerald-500/30", dot: "bg-emerald-400" },
   HIGH:      { label: "HIGH CONFIDENCE", bg: "bg-sky-500/15 text-sky-400 ring-sky-500/30",           dot: "bg-sky-400"     },
   MODERATE:  { label: "MODERATE",        bg: "bg-amber-500/15 text-amber-400 ring-amber-500/30",     dot: "bg-amber-400"  },
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  Viral:          "text-sky-400",
-  Bacterial:      "text-amber-400",
-  Fungal:         "text-purple-400",
-  Oncology:       "text-rose-400",
-  CNS:            "text-indigo-400",
-  Metabolic:      "text-green-400",
-  Cardiovascular: "text-orange-400",
-  Inflammatory:   "text-fuchsia-400",
+const CATEGORY_META: Record<string, { color: string; icon: string; textColor: string }> = {
+  Viral:          { color: "#38bdf8", icon: "🦠", textColor: "text-sky-400" },
+  Bacterial:      { color: "#fbbf24", icon: "🧫", textColor: "text-amber-400" },
+  Fungal:         { color: "#c084fc", icon: "🍄", textColor: "text-purple-400" },
+  Oncology:       { color: "#f87171", icon: "🎗️", textColor: "text-rose-400" },
+  CNS:            { color: "#818cf8", icon: "🧠", textColor: "text-indigo-400" },
+  Metabolic:      { color: "#4ade80", icon: "💉", textColor: "text-green-400" },
+  Cardiovascular: { color: "#fb923c", icon: "❤️", textColor: "text-orange-400" },
+  Inflammatory:   { color: "#f0abfc", icon: "🦴", textColor: "text-fuchsia-400" },
+  Respiratory:    { color: "#2dd4bf", icon: "🫁", textColor: "text-teal-400" },
+  GI:             { color: "#a3e635", icon: "🫄", textColor: "text-lime-400" },
+  Dermatology:    { color: "#fca5a5", icon: "🧴", textColor: "text-red-300" },
+  Endocrine:      { color: "#93c5fd", icon: "⚗️", textColor: "text-blue-300" },
+  Infectious:     { color: "#fdba74", icon: "🦟", textColor: "text-orange-300" },
+  Immunology:     { color: "#d8b4fe", icon: "🛡️", textColor: "text-violet-300" },
 };
+
+const DEFAULT_CATEGORY = { color: "#94a3b8", icon: "💊", textColor: "text-slate-400" };
+
+function getCatMeta(cat: string) {
+  return CATEGORY_META[cat] ?? DEFAULT_CATEGORY;
+}
+
+const EXAMPLE_SMILES = [
+  { label: "Imatinib (CML)", smiles: "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1" },
+  { label: "Aspirin (Pain)", smiles: "CC(=O)OC1=CC=CC=C1C(=O)O" },
+  { label: "Fluoxetine (Depression)", smiles: "CNCCC(Oc1ccc(C(F)(F)F)cc1)c1ccccc1" },
+  { label: "Metformin (Diabetes)", smiles: "CN(C)C(=N)NC(=N)N" },
+  { label: "Atorvastatin (Cholesterol)", smiles: "CC(C)c1n(CC(O)CC(=O)O)c(c(-c2ccc(F)cc2)c1-c1ccccc1)C(=O)Nc1ccccc1" },
+  { label: "Acyclovir (Herpes)", smiles: "Nc1nc2c(ncn2COCCO)c(=O)[nH]1" },
+];
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Sub-components
+────────────────────────────────────────────────────────────────────────────── */
 
 function ScoreRing({ score, color }: { score: number; color: string }) {
   const r = 28;
@@ -625,10 +135,11 @@ function ScoreRing({ score, color }: { score: number; color: string }) {
   );
 }
 
-function DiseaseCard({ result, index }: { result: ScoredDisease; index: number }) {
-  const { disease, score, level, matchedFeatures, missedFeatures } = result;
-  const levelMeta = LEVEL_META[level];
-  const catColor = CATEGORY_COLORS[disease.category] ?? "text-muted-foreground";
+function DiseaseCard({ result, index }: { result: DiseaseResult; index: number }) {
+  const { indication, category, max_similarity, match_level, matched_drugs, top_target, top_mechanism } = result;
+  const levelMeta = LEVEL_META[match_level] ?? LEVEL_META.MODERATE;
+  const catMeta = getCatMeta(category);
+  const score = Math.round(max_similarity * 100);
 
   return (
     <motion.div
@@ -647,114 +158,141 @@ function DiseaseCard({ result, index }: { result: ScoredDisease; index: number }
       {/* Gradient glow top */}
       <div
         className="absolute top-0 left-0 right-0 h-px"
-        style={{ background: `linear-gradient(90deg, transparent 0%, ${disease.color}80 50%, transparent 100%)` }}
+        style={{ background: `linear-gradient(90deg, transparent 0%, ${catMeta.color}80 50%, transparent 100%)` }}
       />
-      {/* Subtle background glow */}
       <div
         className="absolute -top-12 -right-12 h-36 w-36 rounded-full blur-3xl opacity-20 transition-opacity duration-300 group-hover:opacity-30"
-        style={{ background: disease.color }}
+        style={{ background: catMeta.color }}
       />
 
       {/* Top row */}
       <div className="flex items-start gap-4 mb-5">
-        {/* Emoji icon */}
         <div
           className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-2xl"
-          style={{ background: `${disease.color}18`, border: `1px solid ${disease.color}35` }}
+          style={{ background: `${catMeta.color}18`, border: `1px solid ${catMeta.color}35` }}
         >
-          {disease.icon}
+          {catMeta.icon}
         </div>
 
         <div className="flex-1 min-w-0">
-          {/* Level badge */}
           <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ring-1 mb-2", levelMeta.bg)}>
             <span className={cn("h-1.5 w-1.5 rounded-full animate-pulse", levelMeta.dot)} />
             {levelMeta.label}
           </div>
-          <h3 className="font-bold text-base leading-tight">{disease.name}</h3>
-          <span className={cn("text-xs font-semibold", catColor)}>{disease.category}</span>
+          <h3 className="font-bold text-base leading-tight">{indication}</h3>
+          <span className={cn("text-xs font-semibold", catMeta.textColor)}>{category}</span>
         </div>
 
-        {/* Score ring */}
-        <ScoreRing score={score} color={disease.color} />
+        <ScoreRing score={score} color={catMeta.color} />
       </div>
 
-      {/* Description */}
-      <p className="text-xs text-muted-foreground leading-relaxed mb-5">{disease.description}</p>
+      {/* Mechanism */}
+      <div className="mb-4">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-1">Primary Mechanism</p>
+        <p className="text-xs text-muted-foreground leading-relaxed">{top_mechanism}</p>
+        <p className="text-[10px] text-muted-foreground mt-1">Target: <span className="font-semibold text-foreground/80">{top_target}</span></p>
+      </div>
 
-      {/* Matched pharmacophoric features */}
+      {/* Matched reference drugs */}
       <div className="mb-4">
         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">
-          Matched Pharmacophoric Features ({matchedFeatures.length}/{matchedFeatures.length + missedFeatures.length})
+          Similar Approved Drugs ({matched_drugs.length})
         </p>
         <div className="space-y-2">
-          {matchedFeatures.map((f) => (
-            <div key={f.label} className="flex items-start gap-2">
-              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" style={{ color: disease.color }} />
-              <div>
-                <span className="text-xs font-semibold">{f.label}</span>
-                <span className="text-[10px] text-muted-foreground ml-1">— {f.description}</span>
-              </div>
-            </div>
-          ))}
-          {missedFeatures.map((f) => (
-            <div key={f} className="flex items-start gap-2 opacity-40">
-              <div className="h-3.5 w-3.5 shrink-0 mt-0.5 flex items-center justify-center">
-                <div className="h-2 w-2 rounded-full border border-muted-foreground" />
-              </div>
-              <span className="text-xs text-muted-foreground">{f}</span>
+          {matched_drugs.map((drug) => (
+            <div key={drug.name} className="flex items-center gap-2">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0" style={{ color: catMeta.color }} />
+              <span className="text-xs font-semibold flex-1">{drug.name}</span>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                style={{ background: `${catMeta.color}14`, color: catMeta.color, border: `1px solid ${catMeta.color}30` }}>
+                {(drug.similarity * 100).toFixed(0)}% match
+              </span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Approved analogues */}
-      <div className="mb-4">
-        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Approved Analogues</p>
-        <div className="flex flex-wrap gap-1.5">
-          {disease.approvedAnalogues.map((drug) => (
-            <span
-              key={drug}
-              className="text-[10px] font-medium px-2.5 py-1 rounded-full"
-              style={{ background: `${disease.color}14`, color: disease.color, border: `1px solid ${disease.color}30` }}
-            >
-              {drug}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Clinical note */}
+      {/* Mechanism note */}
       <div
         className="flex items-start gap-2 rounded-2xl px-3 py-2.5 text-[10px] text-muted-foreground leading-relaxed"
-        style={{ background: `${disease.color}0d`, border: `1px solid ${disease.color}20` }}
+        style={{ background: `${catMeta.color}0d`, border: `1px solid ${catMeta.color}20` }}
       >
-        <Info className="h-3 w-3 shrink-0 mt-0.5" style={{ color: disease.color }} />
-        <span>{disease.clinicalNote}</span>
+        <Info className="h-3 w-3 shrink-0 mt-0.5" style={{ color: catMeta.color }} />
+        <span>Most similar to <strong>{matched_drugs[0]?.name}</strong> — {matched_drugs[0]?.mechanism}</span>
       </div>
     </motion.div>
   );
 }
 
-const EXAMPLE_SMILES = [
-  { label: "Remdesivir-like (Antiviral)", smiles: "CCC(CC)COC(=O)[C@H](CN)OP(=O)(Oc1ccccc1)O[C@H]1[C@@H](O)[C@@H](CO)O[C@@H]1N1C=NC2=C1N=CN=C2N" },
-  { label: "Acyclovir (HSV)", smiles: "Nc1nc2c(ncn2COCCO)c(=O)[nH]1" },
-  { label: "Ciprofloxacin (Antibacterial)", smiles: "O=C(O)c1cn(C2CC2)c2cc(N3CCNCC3)c(F)cc2c1=O" },
-  { label: "Atorvastatin (Cardiovascular)", smiles: "CC(C)c1n(-c2ccccc2)c([C@@H](O)CC(=O)O)c(-c2ccc(F)cc2)c1CCC(=O)O" },
-  { label: "Imatinib (Kinase Cancer)", smiles: "Cc1ccc(NC(=O)c2ccc(CN3CCN(C)CC3)cc2)cc1Nc1nccc(-c2cccnc2)n1" },
-  { label: "Fluconazole (Antifungal)", smiles: "OC(Cn1ccnc1)(Cn1ccnc1)c1ccc(F)cc1F" },
-];
+function MolecularProfileCard({ profile }: { profile: MolecularProfile }) {
+  const lipinski = [
+    { rule: "MW ≤ 500", pass: profile.molecular_weight <= 500 },
+    { rule: "logP ≤ 5", pass: profile.logp <= 5 },
+    { rule: "HBD ≤ 5", pass: profile.hbd <= 5 },
+    { rule: "HBA ≤ 10", pass: profile.hba <= 10 },
+  ];
+  const passCount = lipinski.filter(r => r.pass).length;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.15 }}
+      className="rounded-3xl overflow-hidden border border-white/10 bg-white/[0.03] backdrop-blur-xl p-5"
+    >
+      <div className="flex items-center gap-2 mb-4">
+        <Dna className="h-4 w-4 text-sky-400" />
+        <h3 className="text-sm font-bold">Molecular Profile</h3>
+        <span className="text-[10px] font-mono text-muted-foreground ml-auto">{profile.formula}</span>
+      </div>
+
+      <div className="grid grid-cols-4 gap-3 mb-4">
+        {[
+          { label: "MW", value: profile.molecular_weight.toFixed(1), unit: "g/mol" },
+          { label: "logP", value: profile.logp.toFixed(2), unit: "" },
+          { label: "TPSA", value: profile.tpsa.toFixed(1), unit: "Å²" },
+          { label: "Rings", value: profile.num_rings, unit: "" },
+        ].map(d => (
+          <div key={d.label} className="text-center bg-white/[0.03] rounded-xl p-2.5 border border-white/[0.06]">
+            <p className="text-lg font-bold leading-tight">{d.value}</p>
+            <p className="text-[9px] text-muted-foreground font-semibold uppercase">{d.label} {d.unit}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Lipinski's Rule of Five
+        </p>
+        <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full",
+          passCount === 4 ? "bg-emerald-500/15 text-emerald-400" : passCount >= 3 ? "bg-amber-500/15 text-amber-400" : "bg-red-500/15 text-red-400"
+        )}>
+          {passCount}/4 Pass
+        </span>
+      </div>
+      <div className="flex gap-2">
+        {lipinski.map(r => (
+          <div key={r.rule} className={cn("text-[10px] font-medium px-2.5 py-1 rounded-full border",
+            r.pass ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/10" : "border-red-500/30 text-red-400 bg-red-500/10"
+          )}>
+            {r.pass ? "✓" : "✗"} {r.rule}
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    Main Page
 ────────────────────────────────────────────────────────────────────────────── */
 export default function SimilarityAnalyzer() {
   const [smiles, setSmiles] = useState("");
-  const [results, setResults] = useState<ScoredDisease[] | null>(null);
+  const [data, setData] = useState<SimilarityResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const runAnalysis = useCallback(() => {
+  const runAnalysis = useCallback(async () => {
     const trimmed = smiles.trim();
     if (!trimmed) return;
 
@@ -762,31 +300,37 @@ export default function SimilarityAnalyzer() {
       setError("SMILES string too short. Please enter a valid molecular structure.");
       return;
     }
-    if (!/^[A-Za-z0-9@+\-\[\]()=#%/.\\]+$/.test(trimmed)) {
-      setError("Invalid characters detected. Please enter a valid SMILES string.");
-      return;
-    }
 
     setLoading(true);
     setError(null);
-    setResults(null);
+    setData(null);
 
-    setTimeout(() => {
-      try {
-        const res = analyzeSmiles(trimmed);
-        setResults(res);
-        if (res.length === 0) {
-          setError("No significant matches found. The molecule doesn't share sufficient structural features with known therapeutic agents. Try a more complex or drug-like SMILES.");
-        }
-      } catch {
-        setError("Analysis failed. Please check your SMILES string.");
-      } finally {
-        setLoading(false);
+    try {
+      const res = await fetch("/api/similarity/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ smiles: trimmed }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(body.detail || `API error: ${res.status}`);
       }
-    }, 1200);
+
+      const result: SimilarityResponse = await res.json();
+      setData(result);
+
+      if (result.diseases.length === 0) {
+        setError("No significant matches found. The molecule doesn't share sufficient structural similarity with known therapeutic agents. Try a more complex or drug-like SMILES.");
+      }
+    } catch (e: any) {
+      setError(e.message || "Analysis failed. Please check your SMILES string.");
+    } finally {
+      setLoading(false);
+    }
   }, [smiles]);
 
-  const topResult = results?.[0];
+  const topResult = data?.diseases?.[0];
 
   return (
     <AppLayout>
@@ -797,7 +341,6 @@ export default function SimilarityAnalyzer() {
       >
         {/* ── Hero Header ── */}
         <div className="relative px-6 lg:px-10 pt-8 pb-6 overflow-hidden">
-          {/* Background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 h-48 w-96 rounded-full blur-3xl opacity-10"
             style={{ background: "linear-gradient(135deg, hsl(187 85% 55%), hsl(207 100% 50%))" }}
           />
@@ -805,18 +348,18 @@ export default function SimilarityAnalyzer() {
             <div className="flex items-center gap-2 mb-2">
               <span className="stat-pill bg-sky-500/15 text-sky-400 text-[11px] font-semibold ring-1 ring-sky-500/25">
                 <FlaskConical className="h-3 w-3" />
-                Structural Pharmacology Engine
+                RDKit Morgan Fingerprint Engine
               </span>
               <span className="stat-pill bg-purple-500/15 text-purple-400 text-[11px] font-semibold ring-1 ring-purple-500/25">
                 <Zap className="h-3 w-3" />
-                Frontend-Native · No Backend Required
+                Tanimoto Similarity · {data ? `${data.total_drugs_matched} drugs matched` : "144 Reference Drugs"}
               </span>
             </div>
             <h1 className="text-4xl font-bold tracking-tight">
               Drug Similarity <span className="gradient-text">Analyzer</span>
             </h1>
             <p className="text-sm text-muted-foreground mt-2 max-w-2xl">
-              Enter any SMILES string and instantly discover which diseases or viruses your drug candidate may be suitable for — powered by a pharmacophoric feature-matching engine against 11 major therapeutic areas.
+              Enter any SMILES string and discover which diseases your drug candidate may treat — powered by Morgan fingerprint (ECFP4) similarity search against 144 approved drugs across 40+ therapeutic indications.
             </p>
           </motion.div>
         </div>
@@ -847,7 +390,7 @@ export default function SimilarityAnalyzer() {
                     <Search className="absolute left-4 top-3.5 h-4 w-4 text-muted-foreground" />
                     <input
                       value={smiles}
-                      onChange={(e) => { setSmiles(e.target.value); setResults(null); setError(null); }}
+                      onChange={(e) => { setSmiles(e.target.value); setData(null); setError(null); }}
                       onKeyDown={(e) => { if (e.key === "Enter") runAnalysis(); }}
                       placeholder="Paste SMILES string, e.g. CC(=O)Oc1ccccc1C(=O)O ..."
                       className={cn(
@@ -859,12 +402,11 @@ export default function SimilarityAnalyzer() {
                       )}
                     />
                   </div>
-                  {/* Quick examples */}
                   <div className="flex flex-wrap gap-2 mt-3">
                     {EXAMPLE_SMILES.map((ex) => (
                       <button
                         key={ex.label}
-                        onClick={() => { setSmiles(ex.smiles); setResults(null); setError(null); }}
+                        onClick={() => { setSmiles(ex.smiles); setData(null); setError(null); }}
                         className={cn(
                           "text-[10px] px-3 py-1.5 rounded-full font-medium transition-all duration-200",
                           "border border-white/10 text-muted-foreground hover:text-foreground hover:border-white/25 hover:bg-white/5",
@@ -917,13 +459,13 @@ export default function SimilarityAnalyzer() {
                   <div className="absolute inset-0 rounded-3xl animate-ping opacity-20" style={{ background: "hsl(187 85% 55%)" }} />
                 </div>
                 <div className="text-center">
-                  <p className="text-lg font-bold">Running Pharmacophore Analysis</p>
+                  <p className="text-lg font-bold">Running Similarity Analysis</p>
                   <p className="text-sm text-muted-foreground mt-1 max-w-sm">
-                    Tokenising structural fragments · Matching against 11 therapeutic disease databases…
+                    Computing Morgan fingerprints · Searching 144 approved drugs · Ranking by Tanimoto similarity…
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  {["Tokenizing", "Pattern Matching", "Ranking Results"].map((step, i) => (
+                  {["Fingerprinting", "Tanimoto Search", "Ranking"].map((step, i) => (
                     <motion.div
                       key={step}
                       initial={{ opacity: 0.3 }}
@@ -939,7 +481,7 @@ export default function SimilarityAnalyzer() {
             )}
 
             {/* Error */}
-            {!loading && error && (
+            {!loading && error && !data && (
               <motion.div
                 key="error"
                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -957,7 +499,7 @@ export default function SimilarityAnalyzer() {
             )}
 
             {/* Empty state */}
-            {!loading && !error && !results && (
+            {!loading && !error && !data && (
               <motion.div
                 key="empty"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -971,14 +513,14 @@ export default function SimilarityAnalyzer() {
                 <div className="text-center max-w-md">
                   <p className="text-xl font-bold text-muted-foreground">Ready for Analysis</p>
                   <p className="text-sm text-muted-foreground mt-2">
-                    Paste any SMILES string above or select an example molecule to begin. The engine will identify which diseases your compound may be therapeutically suitable for.
+                    Paste any SMILES string above or select an example molecule. The engine will compute RDKit Morgan fingerprints and find structurally similar approved drugs to predict therapeutic indications.
                   </p>
                 </div>
                 <div className="grid grid-cols-3 gap-4 text-center mt-4">
                   {[
-                    { icon: "🦠", label: "4 Viral Targets", sub: "COVID-19, Flu, HIV, HSV" },
-                    { icon: "🎗️", label: "2 Oncology Targets", sub: "Kinase, Topoisomerase" },
-                    { icon: "💊", label: "5 Other Areas", sub: "CNS, Metabolic, CV, Auto-immune, Fungal/Bacterial" },
+                    { icon: "🧬", label: "ECFP4 Fingerprints", sub: "2048-bit Morgan (radius=2)" },
+                    { icon: "📊", label: "Tanimoto Similarity", sub: "Gold-standard metric" },
+                    { icon: "💊", label: "144 Approved Drugs", sub: "40+ disease indications" },
                   ].map((c) => (
                     <div key={c.label} className="glass-card rounded-2xl p-4">
                       <div className="text-2xl mb-1">{c.icon}</div>
@@ -991,29 +533,34 @@ export default function SimilarityAnalyzer() {
             )}
 
             {/* Results */}
-            {!loading && !error && results && results.length > 0 && (
+            {!loading && data && data.diseases.length > 0 && (
               <motion.div
                 key="results"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               >
+                {/* Molecular Profile */}
+                <div className="mb-6">
+                  <MolecularProfileCard profile={data.molecular_profile} />
+                </div>
+
                 {/* Results header */}
                 <div className="flex items-center justify-between mb-6">
                   <div>
                     <h2 className="text-xl font-bold">
-                      <span className="gradient-text">{results.length}</span> Therapeutic{results.length !== 1 ? " Areas" : " Area"} Identified
+                      <span className="gradient-text">{data.total_diseases_found}</span> Therapeutic{data.total_diseases_found !== 1 ? " Areas" : " Area"} Identified
                     </h2>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Ranked by pharmacophoric match score · Only showing ≥40% confidence
+                      Ranked by Tanimoto similarity · {data.total_drugs_matched} drug matches across {data.total_diseases_found} indications
                     </p>
                   </div>
                   {topResult && (
                     <div className="flex items-center gap-2 px-4 py-2 rounded-2xl" style={{
-                      background: `${topResult.disease.color}12`,
-                      border: `1px solid ${topResult.disease.color}30`,
+                      background: `${getCatMeta(topResult.category).color}12`,
+                      border: `1px solid ${getCatMeta(topResult.category).color}30`,
                     }}>
-                      <TrendingUp className="h-4 w-4" style={{ color: topResult.disease.color }} />
+                      <TrendingUp className="h-4 w-4" style={{ color: getCatMeta(topResult.category).color }} />
                       <span className="text-xs font-semibold">
-                        Best: <span style={{ color: topResult.disease.color }}>{topResult.disease.name} ({topResult.score}%)</span>
+                        Best: <span style={{ color: getCatMeta(topResult.category).color }}>{topResult.indication} ({Math.round(topResult.max_similarity * 100)}%)</span>
                       </span>
                     </div>
                   )}
@@ -1021,7 +568,7 @@ export default function SimilarityAnalyzer() {
 
                 {/* Legend */}
                 <div className="flex gap-4 mb-6">
-                  {(Object.entries(LEVEL_META) as [MatchLevel, typeof LEVEL_META[MatchLevel]][]).map(([key, meta]) => (
+                  {(Object.entries(LEVEL_META) as [string, typeof LEVEL_META[string]][]).map(([key, meta]) => (
                     <div key={key} className="flex items-center gap-1.5">
                       <span className={cn("h-2 w-2 rounded-full", meta.dot)} />
                       <span className="text-[10px] text-muted-foreground font-medium">{meta.label}</span>
@@ -1029,14 +576,14 @@ export default function SimilarityAnalyzer() {
                   ))}
                   <div className="flex items-center gap-1.5 ml-auto">
                     <Shield className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">Pharmacophore-validated · Research use only</span>
+                    <span className="text-[10px] text-muted-foreground">RDKit-validated · Research use only</span>
                   </div>
                 </div>
 
                 {/* Cards grid */}
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                  {results.map((r, i) => (
-                    <DiseaseCard key={r.disease.id} result={r} index={i} />
+                  {data.diseases.map((r, i) => (
+                    <DiseaseCard key={r.indication} result={r} index={i} />
                   ))}
                 </div>
 
@@ -1047,7 +594,7 @@ export default function SimilarityAnalyzer() {
                 >
                   <Info className="h-3.5 w-3.5 shrink-0 mt-0.5 text-sky-400" />
                   <span>
-                    <strong className="text-foreground">Research Disclaimer:</strong> This analysis is based on structural pharmacophore pattern matching and is intended for research ideation only. It does not constitute clinical advice and should not replace in-vitro/in-vivo validation, binding assays, or regulatory review.
+                    <strong className="text-foreground">Research Disclaimer:</strong> This analysis uses RDKit Morgan fingerprint (ECFP4) Tanimoto similarity against a curated database of approved drugs. Results are for research ideation only and do not constitute clinical advice.
                   </span>
                 </motion.div>
               </motion.div>
