@@ -53,3 +53,8 @@ construction/hardware_pipeline_results.json
 *.tmp
 *.bak
 ~$*
+
+# Allow database files
+!*.db
+!*.sqlite
+!*.sqlite3

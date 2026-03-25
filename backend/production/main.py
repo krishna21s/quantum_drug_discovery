@@ -47,6 +47,8 @@ from .experiment_routes import router as experiment_router
 from .quantum_lab_routes import router as quantum_lab_router
 from .experiment_db_routes import router as experiment_db_router
 from .vqc_routes import router as vqc_router
+from .organ_impact_routes import router as organ_impact_router
+from .dashboard_routes import router as dashboard_router
 from .pipeline_loader import load_pipeline
 
 # Database Imports
@@ -182,6 +184,8 @@ app.include_router(experiment_router)
 app.include_router(quantum_lab_router)
 app.include_router(experiment_db_router)
 app.include_router(vqc_router)
+app.include_router(organ_impact_router)
+app.include_router(dashboard_router)
 
 
 # ── Root ────────────────────────────────────────────────────

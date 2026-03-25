@@ -11,7 +11,7 @@ import {
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, useGLTF, Html, GizmoHelper, GizmoViewport } from "@react-three/drei";
 import * as THREE from "three";
-import { predictToxicity, type PredictResponse } from "@/lib/toxicityApi";
+import { predictToxicity, predictOrganImpact, type PredictResponse, type OrganImpactResponse } from "@/lib/toxicityApi";
 
 /* ================================================================
    DATA & CONFIG
@@ -254,6 +254,7 @@ export default function Visualization() {
   const [smilesInput, setSmilesInput] = useState("");
   const [predicting, setPredicting] = useState(false);
   const [prediction, setPrediction] = useState<PredictResponse | null>(null);
+  const [organImpact, setOrganImpact] = useState<OrganImpactResponse | null>(null);
   const [predError, setPredError] = useState("");
 
   const currentSystem = anatomySystems.find(s => s.id === activeSystem) || anatomySystems[0];
@@ -302,10 +303,18 @@ export default function Visualization() {
 
   const handlePredict = useCallback(async () => {
     if (!smilesInput.trim()) return;
-    setPredicting(true); setPredError(""); setPrediction(null);
+    setPredicting(true); setPredError(""); setPrediction(null); setOrganImpact(null);
     try {
-      const res = await predictToxicity(smilesInput.trim());
-      setPrediction(res);
+      const [toxRes, organRes] = await Promise.all([
+        predictToxicity(smilesInput.trim()),
+        predictOrganImpact(smilesInput.trim()),
+      ]);
+      setPrediction(toxRes);
+      setOrganImpact(organRes);
+      // Auto-enable targeting visualization when organ impact data arrives
+      if (organRes.target_organs.length > 0 || organRes.side_effect_organs.length > 0) {
+        setShowTargeting(true);
+      }
     } catch (e: any) {
       setPredError(e.message || "Prediction failed");
     } finally { setPredicting(false); }
@@ -368,26 +377,58 @@ export default function Visualization() {
               <>
                 <div className="bg-card border border-border rounded-[28px] p-5 shadow-sm">
                   <h3 className="text-sm font-black mb-1 flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-500" /><span className="text-emerald-600 dark:text-emerald-400">Predicted Target Zones</span></h3>
-                  <p className="text-[10px] text-muted-foreground mb-4">Where Q-PharmX predicts this drug acts</p>
+                  <p className="text-[10px] text-muted-foreground mb-4">{organImpact ? `${organImpact.drug_class} — ${organImpact.mechanism_summary}` : "Where Q-PharmX predicts this drug acts"}</p>
                   <div className="space-y-3">
-                    {selectedDrug.targetOrgans.map((organ, i) => (
+                    {(organImpact ? organImpact.target_organs : selectedDrug.targetOrgans).map((organ, i) => (
                       <div key={i} className="bg-emerald-500/[0.04] border border-emerald-500/10 rounded-xl p-3.5">
-                        <div className="flex items-center gap-2 mb-1.5"><div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(0,255,136,0.5)]" /><p className="text-xs font-bold">{organ.name}</p></div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(0,255,136,0.5)]" />
+                          <p className="text-xs font-bold flex-1">{organ.name}</p>
+                          {"confidence" in organ && (
+                            <span className="text-[9px] font-bold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-full">
+                              {((organ as any).confidence * 100).toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">{organ.reason}</p>
+                        {"confidence" in organ && (
+                          <div className="mt-2 ml-5 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-emerald-400/60 rounded-full transition-all duration-500" style={{ width: `${(organ as any).confidence * 100}%` }} />
+                          </div>
+                        )}
                       </div>
                     ))}
+                    {organImpact && organImpact.target_organs.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic py-2">No specific target organs identified for this scaffold</p>
+                    )}
                   </div>
                 </div>
                 <div className="bg-card border border-border rounded-[28px] p-5 shadow-sm">
                   <h3 className="text-sm font-black mb-1 flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-red-500" /><span className="text-red-600 dark:text-red-400">Predicted Adverse Effects</span></h3>
-                  <p className="text-[10px] text-muted-foreground mb-4">ADMET toxicity predictions</p>
+                  <p className="text-[10px] text-muted-foreground mb-4">{organImpact ? "RDKit substructure + physicochemical analysis" : "ADMET toxicity predictions"}</p>
                   <div className="space-y-3">
-                    {selectedDrug.sideEffectOrgans.map((organ, i) => (
+                    {(organImpact ? organImpact.side_effect_organs : selectedDrug.sideEffectOrgans).map((organ, i) => (
                       <div key={i} className="bg-red-500/[0.04] border border-red-500/10 rounded-xl p-3.5">
-                        <div className="flex items-center gap-2 mb-1.5"><div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(255,51,68,0.5)]" /><p className="text-xs font-bold">{organ.name}</p></div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <div className="h-2.5 w-2.5 rounded-full bg-red-500 shadow-[0_0_6px_rgba(255,51,68,0.5)]" />
+                          <p className="text-xs font-bold flex-1">{organ.name}</p>
+                          {"confidence" in organ && (
+                            <span className="text-[9px] font-bold text-red-500 bg-red-500/10 px-2 py-0.5 rounded-full">
+                              {((organ as any).confidence * 100).toFixed(0)}%
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[11px] text-muted-foreground leading-relaxed pl-5">{organ.reason}</p>
+                        {"confidence" in organ && (
+                          <div className="mt-2 ml-5 h-1 bg-white/5 rounded-full overflow-hidden">
+                            <div className="h-full bg-red-500/60 rounded-full transition-all duration-500" style={{ width: `${(organ as any).confidence * 100}%` }} />
+                          </div>
+                        )}
                       </div>
                     ))}
+                    {organImpact && organImpact.side_effect_organs.length === 0 && (
+                      <p className="text-xs text-muted-foreground italic py-2">No adverse effects identified for this scaffold</p>
+                    )}
                   </div>
                 </div>
               </>
@@ -462,7 +503,7 @@ export default function Visualization() {
                     <directionalLight position={[5, 5, 5]} intensity={0.8} />
                     <directionalLight position={[-5, -5, -5]} intensity={0.4} />
                     <Suspense fallback={<LoadingFallback />}>
-                      <ModelWithFallback modelPath={currentSystem.file} controlsRef={controlsRef} systemColor={currentSystem.color} systemId={currentSystem.id} showTargeting={showTargeting} targetOrganNames={selectedDrug.targetOrgans.map(o => o.name)} riskOrganNames={selectedDrug.sideEffectOrgans.map(o => o.name)} />
+                      <ModelWithFallback modelPath={currentSystem.file} controlsRef={controlsRef} systemColor={currentSystem.color} systemId={currentSystem.id} showTargeting={showTargeting} targetOrganNames={organImpact ? organImpact.target_organs.map(o => o.name) : selectedDrug.targetOrgans.map(o => o.name)} riskOrganNames={organImpact ? organImpact.side_effect_organs.map(o => o.name) : selectedDrug.sideEffectOrgans.map(o => o.name)} />
                     </Suspense>
                     <OrbitControls ref={controlsRef} makeDefault enableDamping dampingFactor={0.05} minDistance={1} maxDistance={50} />
                     <GizmoHelper alignment="bottom-right" margin={[80, 80]}>
@@ -580,7 +621,7 @@ export default function Visualization() {
               <h3 className="text-sm font-black mb-4 flex items-center gap-2"><Pill className="h-4 w-4 text-primary" /> Select Drug Compound</h3>
               <div className="space-y-2">
                 {drugCompounds.map((drug) => (
-                  <button key={drug.id} onClick={() => setSelectedDrug(drug)} className={cn("w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all duration-300 border", selectedDrug.id === drug.id ? "bg-primary/10 border-primary/30 shadow-sm" : "bg-transparent border-transparent hover:bg-muted/50 hover:border-border")}>
+                  <button key={drug.id} onClick={() => { setSelectedDrug(drug); setOrganImpact(null); }} className={cn("w-full flex items-center gap-3 p-3 rounded-2xl text-left transition-all duration-300 border", selectedDrug.id === drug.id ? "bg-primary/10 border-primary/30 shadow-sm" : "bg-transparent border-transparent hover:bg-muted/50 hover:border-border")}>
                     <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center text-xs font-black shrink-0 transition-colors", selectedDrug.id === drug.id ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>{drug.pdb.slice(0, 2)}</div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold truncate">{drug.name}</p>

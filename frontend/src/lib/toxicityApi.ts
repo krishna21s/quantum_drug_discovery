@@ -94,3 +94,31 @@ export async function checkHealth(): Promise<HealthResponse> {
   const res = await fetch(`${API_BASE}/health`);
   return handleResponse<HealthResponse>(res);
 }
+
+// ── Organ Impact Prediction ────────────────────────────────────────
+
+export interface OrganEffect {
+  name: string;
+  reason: string;
+  confidence: number;
+}
+
+export interface OrganImpactResponse {
+  smiles: string;
+  canonical_smiles: string;
+  target_organs: OrganEffect[];
+  side_effect_organs: OrganEffect[];
+  drug_class: string;
+  mechanism_summary: string;
+}
+
+export async function predictOrganImpact(
+  smiles: string,
+): Promise<OrganImpactResponse> {
+  const res = await fetch(`${API_BASE}/predict/organ-impact`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ smiles }),
+  });
+  return handleResponse<OrganImpactResponse>(res);
+}

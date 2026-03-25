@@ -12,23 +12,30 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip as ReTooltip, ResponsiveContainer,
 } from "recharts";
 import { MagicCard } from "@/components/ui/magic-card";
+import { useEffect, useState, useCallback } from "react";
 
-const activityData = [
-  { day: "Mon", score: 0.62 },
-  { day: "Tue", score: 0.71 },
-  { day: "Wed", score: 0.68 },
-  { day: "Thu", score: 0.80 },
-  { day: "Fri", score: 0.76 },
-  { day: "Sat", score: 0.89 },
-  { day: "Sun", score: 0.94 },
-];
+const API_BASE = "http://localhost:8000";
 
-const recentExperiments = [
-  { id: "1", name: "SARS-CoV-2 Mpro Inhibitor", protein: "6LU7", status: "completed" as const, score: 0.94, date: "Feb 18" },
-  { id: "2", name: "EGFR Kinase Blocker", protein: "1M17", status: "running" as const, score: undefined, date: "Feb 19" },
-  { id: "3", name: "HIV-1 Protease Drug", protein: "1HHP", status: "queued" as const, score: undefined, date: "Feb 19" },
-  { id: "4", name: "Beta-Lactamase Inhibitor", protein: "1ZG4", status: "completed" as const, score: 0.78, date: "Feb 17" },
-];
+interface DashboardStats {
+  experiments_count: number;
+  experiments_this_week: number;
+  molecules_count: number;
+  molecules_ai_generated: number;
+  quantum_runs: number;
+  active_candidates: number;
+  high_confidence_candidates: number;
+  recent_experiments: {
+    id: string;
+    name: string;
+    protein: string;
+    status: "completed" | "running" | "queued";
+    score: number | null;
+    date: string;
+    n_candidates: number;
+  }[];
+  activity_chart: { day: string; score: number }[];
+  trend_pct: number;
+}
 
 const statusConfig = {
   completed: { icon: CheckCircle2, label: "Complete", color: "text-success", dot: "bg-success" },
@@ -49,6 +56,44 @@ const stagger = {
 };
 
 export default function Dashboard() {
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/dashboard/stats`);
+      if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+      const data = await res.json();
+      setStats(data);
+    } catch (e) {
+      console.error("Dashboard stats fetch failed:", e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Derived values
+  const experimentsCount = stats?.experiments_count ?? 0;
+  const experimentsThisWeek = stats?.experiments_this_week ?? 0;
+  const moleculesCount = stats?.molecules_count ?? 0;
+  const moleculesAI = stats?.molecules_ai_generated ?? 0;
+  const quantumRuns = stats?.quantum_runs ?? 0;
+  const activeCandidates = stats?.active_candidates ?? 0;
+  const highConfidence = stats?.high_confidence_candidates ?? 0;
+  const recentExperiments = stats?.recent_experiments ?? [];
+  const activityData = stats?.activity_chart ?? [];
+  const trendPct = stats?.trend_pct ?? 0;
+
+  // Progress bar calculations
+  const expProgress = experimentsCount > 0 ? Math.min(Math.round((experimentsThisWeek / experimentsCount) * 100), 100) : 0;
+  const molProgress = moleculesCount > 0 ? Math.min(Math.round((moleculesAI / moleculesCount) * 100), 100) : 0;
+  const qRunProgress = quantumRuns > 0 ? Math.min(Math.round((quantumRuns / (quantumRuns + 10)) * 100), 100) : 0;
+  const candProgress = activeCandidates > 0 ? Math.min(Math.round((highConfidence / activeCandidates) * 100), 100) : 0;
+
   return (
     <AppLayout>
       <div className="min-h-screen p-6 space-y-6">
@@ -91,10 +136,44 @@ export default function Dashboard() {
 
         {/* ── Stats Row ── */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard title="Experiments" value="24" subtitle="8 this week" icon={FlaskConical} variant="default" index={0} progress={67} trend="↑ 33% from last week" trendUp />
-          <StatCard title="Molecules Tested" value="1,247" subtitle="312 AI-generated" icon={Atom} variant="quantum" index={1} progress={82} />
-          <StatCard title="Quantum Runs" value="89" subtitle="VQE + VQC combined" icon={Zap} variant="warning" index={2} progress={56} />
-          <StatCard title="Active Candidates" value="7" subtitle="3 high confidence" icon={Target} variant="success" index={3} progress={44} />
+          <StatCard
+            title="Experiments"
+            value={loading ? "—" : String(experimentsCount)}
+            subtitle={loading ? "loading…" : `${experimentsThisWeek} this week`}
+            icon={FlaskConical}
+            variant="default"
+            index={0}
+            progress={expProgress}
+            trend={experimentsThisWeek > 0 ? `${experimentsThisWeek} new this week` : undefined}
+            trendUp={experimentsThisWeek > 0}
+          />
+          <StatCard
+            title="Molecules Tested"
+            value={loading ? "—" : moleculesCount.toLocaleString()}
+            subtitle={loading ? "loading…" : `${moleculesAI} AI-generated`}
+            icon={Atom}
+            variant="quantum"
+            index={1}
+            progress={molProgress}
+          />
+          <StatCard
+            title="Quantum Runs"
+            value={loading ? "—" : String(quantumRuns)}
+            subtitle="VQE + VQC combined"
+            icon={Zap}
+            variant="warning"
+            index={2}
+            progress={qRunProgress}
+          />
+          <StatCard
+            title="Active Candidates"
+            value={loading ? "—" : String(activeCandidates)}
+            subtitle={loading ? "loading…" : `${highConfidence} high confidence`}
+            icon={Target}
+            variant="success"
+            index={3}
+            progress={candProgress}
+          />
         </div>
 
         {/* ── Main Grid ── */}
@@ -111,12 +190,12 @@ export default function Dashboard() {
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h2 className="font-semibold text-sm">Discovery Activity</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Binding score trend this week</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Avg binding score (pIC50) trend — last 7 days</p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
                   <TrendingUp className="h-3.5 w-3.5" />
-                  <span>+12.4%</span>
+                  <span>{trendPct > 0 ? "+" : ""}{trendPct}%</span>
                 </div>
                 <div className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold bg-primary/15 text-primary-foreground dark:text-primary">This Week</div>
               </div>
@@ -131,7 +210,7 @@ export default function Dashboard() {
                   </linearGradient>
                 </defs>
                 <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={[0.5, 1]} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} domain={['auto', 'auto']} />
                 <ReTooltip
                   contentStyle={{
                     background: "hsl(var(--card))",
@@ -141,7 +220,7 @@ export default function Dashboard() {
                     color: "hsl(var(--foreground))",
                     boxShadow: "var(--shadow-card)",
                   }}
-                  formatter={(val: number) => [val.toFixed(2), "Binding Score"]}
+                  formatter={(val: number) => [val.toFixed(2), "Avg pIC50"]}
                 />
                 <Area
                   type="monotone"
@@ -190,13 +269,17 @@ export default function Dashboard() {
             {/* Mini stat */}
             <div className="mt-4 pt-3 border-t border-border/40">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">GPU Cluster</span>
-                <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold bg-primary/15 text-foreground">Online</span>
+                <span className="text-muted-foreground">Backend API</span>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${stats ? "bg-primary/15 text-foreground" : "bg-red-500/15 text-red-400"}`}>
+                  {stats ? "Online" : "Offline"}
+                </span>
               </div>
               <div className="mt-2 progress-bar">
-                <div className="progress-fill" style={{ width: "78%", background: "hsl(var(--primary))" }} />
+                <div className="progress-fill" style={{ width: stats ? "100%" : "0%", background: "hsl(var(--primary))" }} />
               </div>
-              <p className="text-[11px] text-muted-foreground mt-1">78% utilisation</p>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                {stats ? `${experimentsCount} experiments stored` : "Connecting…"}
+              </p>
             </div>
            </MagicCard>
           </motion.div>
@@ -213,7 +296,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="font-semibold text-base">Recent Experiments</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Latest drug discovery runs</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Latest drug discovery runs from database</p>
             </div>
             <Link to="/molecules" className="flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
               View all <ArrowRight className="h-3.5 w-3.5" />
@@ -221,49 +304,62 @@ export default function Dashboard() {
           </div>
 
           <div className="space-y-3">
-            {recentExperiments.map((exp, i) => {
-              const cfg = statusConfig[exp.status];
-              return (
-                <motion.div
-                  key={exp.id}
-                  initial={{ opacity: 0, x: -12 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.4 + i * 0.07 }}
-                  className="bg-muted/10 border border-border/30 rounded-2xl px-4 py-3 flex items-center gap-3 group hover:scale-[1.01] transition-all duration-200 cursor-default"
-                >
-                  {/* Index */}
-                  <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
-                    {String(i + 1).padStart(2, "0")}
-                  </div>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate">{exp.name}</p>
-                    <p className="text-xs text-muted-foreground">{exp.protein} · {exp.date}</p>
-                  </div>
-
-                  {/* Score */}
-                  {exp.score !== undefined ? (
-                    <div className="text-right">
-                      <p className="text-sm font-bold">{exp.score.toFixed(2)}</p>
-                      <p className="text-xs text-muted-foreground">score</p>
+            {loading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span className="ml-2 text-sm text-muted-foreground">Loading experiments…</span>
+              </div>
+            ) : recentExperiments.length === 0 ? (
+              <div className="text-center py-8">
+                <FlaskConical className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-sm text-muted-foreground">No experiments yet</p>
+                <p className="text-xs text-muted-foreground mt-1">Run your first experiment to see data here</p>
+              </div>
+            ) : (
+              recentExperiments.map((exp, i) => {
+                const cfg = statusConfig[exp.status];
+                return (
+                  <motion.div
+                    key={exp.id}
+                    initial={{ opacity: 0, x: -12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.4 + i * 0.07 }}
+                    className="bg-muted/10 border border-border/30 rounded-2xl px-4 py-3 flex items-center gap-3 group hover:scale-[1.01] transition-all duration-200 cursor-default"
+                  >
+                    {/* Index */}
+                    <div className="h-8 w-8 rounded-xl bg-muted/40 flex items-center justify-center text-xs font-bold text-muted-foreground flex-shrink-0">
+                      {String(i + 1).padStart(2, "0")}
                     </div>
-                  ) : (
-                    <div className="text-right">
-                      <p className="text-xs text-muted-foreground">—</p>
+
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{exp.name}</p>
+                      <p className="text-xs text-muted-foreground">{exp.protein} · {exp.date} · {exp.n_candidates} candidates</p>
                     </div>
-                  )}
 
-                  {/* Status */}
-                  <div className={`flex items-center gap-1.5 text-xs font-semibold w-24 justify-end ${cfg.color}`}>
-                    <div className={`h-1.5 w-1.5 rounded-full ${cfg.dot} ${exp.status === "running" ? "animate-pulse" : ""}`} />
-                    {cfg.label}
-                  </div>
+                    {/* Score */}
+                    {exp.score !== null ? (
+                      <div className="text-right">
+                        <p className="text-sm font-bold">{exp.score.toFixed(2)}</p>
+                        <p className="text-xs text-muted-foreground">best pIC50</p>
+                      </div>
+                    ) : (
+                      <div className="text-right">
+                        <p className="text-xs text-muted-foreground">—</p>
+                      </div>
+                    )}
 
-                  <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
-                </motion.div>
-              );
-            })}
+                    {/* Status */}
+                    <div className={`flex items-center gap-1.5 text-xs font-semibold w-24 justify-end ${cfg.color}`}>
+                      <div className={`h-1.5 w-1.5 rounded-full ${cfg.dot} ${exp.status === "running" ? "animate-pulse" : ""}`} />
+                      {cfg.label}
+                    </div>
+
+                    <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-muted-foreground transition-colors" />
+                  </motion.div>
+                );
+              })
+            )}
           </div>
          </MagicCard>
         </motion.div>
