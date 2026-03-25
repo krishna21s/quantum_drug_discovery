@@ -2,6 +2,8 @@ import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import Protein3DViewer from "@/components/Protein3DViewer";
 import {
   FlaskConical,
   ChevronRight,
@@ -215,13 +217,12 @@ export default function Experiment() {
           {steps.map((step, i) => (
             <div key={step.id} className="flex items-center gap-3">
               <div
-                className={`flex h-8 w-8 items-center justify-center rounded-md font-mono text-xs font-semibold transition-colors duration-200 ${
-                  step.id === currentStep
+                className={`flex h-8 w-8 items-center justify-center rounded-md font-mono text-xs font-semibold transition-colors duration-200 ${step.id === currentStep
                     ? "bg-foreground text-background"
                     : step.id < currentStep
-                    ? "bg-muted text-foreground border border-border"
-                    : "bg-transparent text-muted-foreground border border-border/50"
-                }`}
+                      ? "bg-muted text-foreground border border-border"
+                      : "bg-transparent text-muted-foreground border border-border/50"
+                  }`}
               >
                 {step.id}
               </div>
@@ -238,53 +239,95 @@ export default function Experiment() {
           {currentStep === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h2 className="text-lg font-semibold">Select Protein Target</h2>
-              
-              <div className="border border-border bg-card p-5 rounded-xl space-y-3">
-                <label className="text-sm font-medium">Enter PDB ID</label>
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={customPdb}
-                    onChange={(e) => setCustomPdb(e.target.value)}
-                    placeholder="e.g., 6LU7"
-                    className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
-                    onKeyDown={(e) => e.key === "Enter" && handleLoadTarget()}
-                  />
-                  <Button variant="outline" className="rounded-lg" onClick={handleLoadTarget}>Load Target</Button>
-                </div>
-              </div>
 
-              <div className="space-y-3">
-                <p className="text-sm font-medium">Or select from clinical library:</p>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {proteinTargets.map((p) => (
-                    <button
-                      key={p.pdb}
-                      onClick={() => setSelectedProtein(p.pdb)}
-                      className={`text-left p-5 rounded-xl border transition-colors duration-200 ${
-                        selectedProtein === p.pdb 
-                          ? "border-foreground bg-accent/5" 
-                          : "border-border bg-card hover:bg-muted/50"
-                      }`}
-                    >
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-mono text-sm font-bold">{p.pdb}</span>
-                        {selectedProtein === p.pdb && <CheckCircle2 className="h-4 w-4 text-foreground" />}
-                      </div>
-                      <p className="text-sm font-medium text-foreground">{p.name}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{p.disease}</p>
-                    </button>
-                  ))}
+              {/* ── 2-column master layout: left = classic inputs, right = 3D viewer ── */}
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+
+                {/* ── LEFT: original PDB input + original card grid ── */}
+                <div className="space-y-6">
+                  <div className="border border-border bg-card p-5 rounded-xl space-y-3">
+                    <label className="text-sm font-medium">Enter PDB ID</label>
+                    <div className="flex gap-3">
+                      <input
+                        type="text"
+                        value={customPdb}
+                        onChange={(e) => setCustomPdb(e.target.value)}
+                        placeholder="e.g., 6LU7"
+                        className="flex-1 rounded-lg border border-border bg-background px-4 py-2 text-sm font-mono focus:border-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition-all"
+                        onKeyDown={(e) => e.key === "Enter" && handleLoadTarget()}
+                      />
+                      <Button variant="outline" className="rounded-lg" onClick={handleLoadTarget}>Load Target</Button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <p className="text-sm font-medium">Or select from clinical library:</p>
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {proteinTargets.map((p) => (
+                        <button
+                          key={p.pdb}
+                          onClick={() => setSelectedProtein(p.pdb)}
+                          className={`text-left p-5 rounded-xl border transition-colors duration-200 ${selectedProtein === p.pdb
+                              ? "border-foreground bg-accent/5"
+                              : "border-border bg-card hover:bg-muted/50"
+                            }`}
+                        >
+                          <div className="flex justify-between items-start mb-2">
+                            <span className="font-mono text-sm font-bold">{p.pdb}</span>
+                            {selectedProtein === p.pdb && <CheckCircle2 className="h-4 w-4 text-foreground" />}
+                          </div>
+                          <p className="text-sm font-medium text-foreground">{p.name}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{p.disease}</p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── RIGHT: 3D Viewer ── */}
+                <div>
+                  <AnimatePresence mode="wait">
+                    {selectedProtein ? (
+                      <motion.div
+                        key={selectedProtein}
+                        initial={{ opacity: 0, scale: 0.97 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.97 }}
+                        transition={{ duration: 0.35 }}
+                      >
+                        <Protein3DViewer pdbId={selectedProtein} />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="empty"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="glass-card rounded-2xl flex flex-col items-center justify-center text-center gap-3 min-h-[420px]"
+                      >
+                        <div className="h-14 w-14 rounded-2xl bg-muted/20 ring-1 ring-white/10 flex items-center justify-center">
+                          <FlaskConical className="h-7 w-7 text-muted-foreground" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-muted-foreground text-sm">No Target Selected</p>
+                          <p className="text-[11px] text-muted-foreground/60 mt-1">
+                            Select a protein to view its 3D structure
+                          </p>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             </div>
           )}
 
+
           {currentStep === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Configure Analysis & Target Stress</h2>
-                
+
                 {/* Auto Set Button */}
                 <Button
                   onClick={handleAutoConfig}
@@ -317,7 +360,7 @@ export default function Experiment() {
                   <button onClick={() => setAutoConfigResult(null)} className="text-muted-foreground hover:text-foreground ml-auto text-xs">✕</button>
                 </div>
               )}
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="border border-border bg-card p-5 rounded-xl space-y-4">
                   <h3 className="font-medium text-sm">Quantum Parameters</h3>
@@ -412,7 +455,7 @@ export default function Experiment() {
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4 mb-6">
                   <div>
                     <h3 className="font-semibold text-foreground flex items-center gap-2">
-                      <Activity className="h-4 w-4" /> 
+                      <Activity className="h-4 w-4" />
                       Disease Exploration & Structural Stress
                     </h3>
                     <p className="text-sm text-muted-foreground mt-1">
@@ -431,11 +474,10 @@ export default function Experiment() {
                       <button
                         key={stress.id}
                         onClick={() => toggleStress(stress.id)}
-                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border text-center transition-colors duration-200 ${
-                          isActive
+                        className={`flex flex-col items-center gap-2 p-4 rounded-lg border text-center transition-colors duration-200 ${isActive
                             ? "border-foreground bg-accent/5 text-foreground"
                             : "border-border bg-background hover:bg-muted/50 text-muted-foreground hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         <stress.icon className={`h-5 w-5 ${isActive ? "text-foreground" : "text-muted-foreground"}`} />
                         <span className="text-xs font-medium">{stress.label}</span>
@@ -470,7 +512,7 @@ export default function Experiment() {
           {currentStep === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <h2 className="text-lg font-semibold">{isRunning ? "Running Pipeline" : "Ready to Execute"}</h2>
-              
+
               {/* Error display */}
               {runError && (
                 <div className="border border-destructive/30 bg-destructive/10 rounded-xl p-4 flex items-start gap-3">
@@ -534,13 +576,13 @@ export default function Experiment() {
                         : `${Math.round((pipelineStage / pipelineStages.length) * 100)}%`}
                     </span>
                   </div>
-                  
+
                   <div className="space-y-6">
                     {pipelineStages.map((stage, i) => {
                       const isDone = i < pipelineStage;
                       const isActive = i === pipelineStage;
                       const isPending = i > pipelineStage;
-                      
+
                       return (
                         <div key={stage.id} className={`flex gap-4 ${isPending ? 'opacity-40' : 'opacity-100'} transition-opacity duration-300`}>
                           <div className="mt-0.5">
@@ -558,10 +600,10 @@ export default function Experiment() {
                               {isActive && <span className="font-mono text-xs">{Math.min(Math.round(stageProgress), 100)}%</span>}
                             </div>
                             <p className="text-xs text-muted-foreground">{stage.detail}</p>
-                            
+
                             {isActive && (
                               <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden mt-2">
-                                <div 
+                                <div
                                   className="h-full bg-foreground transition-all duration-150 ease-linear"
                                   style={{ width: `${Math.min(stageProgress, 100)}%` }}
                                 />
@@ -572,7 +614,7 @@ export default function Experiment() {
                       );
                     })}
                   </div>
-                  
+
                   {pipelineStage >= pipelineStages.length && (
                     <div className="pt-4 border-t border-border text-center">
                       <span className="text-sm font-bold text-foreground inline-flex items-center gap-2">
@@ -588,17 +630,17 @@ export default function Experiment() {
 
         {/* Navigation */}
         <div className="flex justify-between pt-6 border-t border-border">
-          <Button 
-            variant="outline" 
-            disabled={currentStep === 1 || isRunning} 
-            onClick={() => setCurrentStep((s) => s - 1)} 
+          <Button
+            variant="outline"
+            disabled={currentStep === 1 || isRunning}
+            onClick={() => setCurrentStep((s) => s - 1)}
             className="rounded-lg px-6"
           >
             Previous
           </Button>
-          <Button 
-            disabled={currentStep === 3 || isRunning || (currentStep === 1 && !selectedProtein)} 
-            onClick={() => setCurrentStep((s) => s + 1)} 
+          <Button
+            disabled={currentStep === 3 || isRunning || (currentStep === 1 && !selectedProtein)}
+            onClick={() => setCurrentStep((s) => s + 1)}
             className="rounded-lg px-6"
           >
             Continue

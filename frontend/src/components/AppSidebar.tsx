@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Sparkles,
   Database,
+  GitCompare,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -31,6 +32,7 @@ const navItems = [
   { path: "/visualization", label: "3D Viewer", icon: Microscope, color: "hsl(187 85% 55%)" },
   { path: "/admet", label: "ADMET", icon: Shield, color: "hsl(350 85% 62%)" },
   { path: "/refinement", label: "Lead Optimize", icon: Sparkles, color: "hsl(270 70% 60%)" },
+  { path: "/similarity", label: "Similarity Analyzer", icon: GitCompare, color: "hsl(187 85% 55%)" },
   { path: "/reports", label: "Reports", icon: FileText, color: "hsl(280 80% 65%)" },
 ];
 

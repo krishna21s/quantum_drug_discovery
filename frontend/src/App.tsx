@@ -19,6 +19,7 @@ import ToxicityScreening from "./pages/ToxicityScreening";
 import Refinement from "./pages/Refinement";
 import ExperimentResults from "./pages/ExperimentResults";
 import VqcCircuits from "./pages/VqcCircuits";
+import SimilarityAnalyzer from "./pages/SimilarityAnalyzer";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,7 @@ const App = () => (
               <Route path="/analysis" element={<Analysis />} />
               <Route path="/toxicity" element={<ToxicityScreening />} />
               <Route path="/refinement" element={<Refinement />} />
+              <Route path="/similarity" element={<SimilarityAnalyzer />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
