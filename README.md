@@ -6,6 +6,8 @@
 
 **Accelerating drug discovery using quantum computing and AI.** A practical approach to solving real-world pharmaceutical challenges through cutting-edge quantum machine learning.
 
+📺 **[Watch Demo Video](https://youtu.be/j7eJwWEUs9o?si=sJf3cTKFKvUk-ScW)**
+
 ---
 
 ## 🎯 The Problem We're Solving
