@@ -109,16 +109,8 @@ Traditional computers struggle with molecular complexity. Quantum computers can 
 ✅ **False Positive Reduction**: 60% fewer invalid predictions  
 ✅ **User Interface**: Dashboard for non-technical stakeholders  
 
----
+--
 
-## 🗺️ What's Coming Next
-
-- **Q3 2026**: Partnership with pharmaceutical company for validation
-- **Q4 2026**: FDA compliance framework
-- **Q1 2027**: First drug candidate recommendation to pharma partner
-- **Q2 2027**: Web platform for research institutions
-- **Q3 2027**: API for third-party integration
-
----
+--
 
 **Mission**: Make drug discovery faster, cheaper, and more reliable for humanity. 🌍
