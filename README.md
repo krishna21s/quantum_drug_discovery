@@ -2,7 +2,6 @@
 
 [![Python](https://img.shields.io/badge/Python-53.3%25-blue)](https://www.python.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-45.4%25-blue)](https://www.typescriptlang.org/)
-[![License](https://img.shields.io/badge/License-MIT-green)](#license)
 
 Deep research towards practical implementation of drugs in terms of integrating quantum machine learning.
 
@@ -22,8 +21,7 @@ This project explores the intersection of quantum computing and machine learning
 
 - **Python** (53.3%): Core computational and ML implementation
   - Quantum computing frameworks (Qiskit, PennyLane, etc.)
-  - Scientific computing (NumPy, SciPy)
-  - Machine learning (TensorFlow, PyTorch, Scikit-learn)
+  - Machine learning (TensorFlow, Scikit-learn)
   
 - **TypeScript** (45.4%): Frontend and API interfaces
   - REST API and web services
@@ -36,7 +34,7 @@ This project explores the intersection of quantum computing and machine learning
 
 - Python 3.8 or higher
 - Node.js 14+ (for TypeScript components)
-- pip or conda package manager
+- pip
 - Git
 
 ### Installation
@@ -88,11 +86,6 @@ quantum_drug_discovery/
 ```
 
 ## Core Components
-
-### Quantum Algorithms
-- Variational Quantum Algorithms (VQA)
-- Quantum Approximate Optimization Algorithm (QAOA)
-- Quantum Neural Networks (QNN)
 
 ### ML Models
 - Neural networks for molecular property prediction
